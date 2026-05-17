@@ -3,6 +3,8 @@
 #include "kstring.h"
 #include "filesystem/fs.h"
 
+#define CMD_IS(s) (cmd_len == sizeof(s)-1 && kstrncmp(input, s, cmd_len) == 0)
+
 #define INPUT_MAX 256
 #define N_COLORS 7
 
@@ -140,44 +142,43 @@ void shell_run(void) {
 
         size_t cmd_len = 0;
         while (input[cmd_len] && input[cmd_len] != ' ') cmd_len++;
-        
+
         const char* args = (input[cmd_len] == ' ') ? &input[cmd_len + 1] : "";
 
-        if (kstrncmp(input, "help",   4) == 0) { cmd_help(); }
-        else if (kstrncmp(input, "clear",  5) == 0) { vga_clear(); }
-        else if (kstrncmp(input, "echo",   4) == 0) { cmd_echo(args); }
-        else if (kstrncmp(input, "color",  5) == 0) { cmd_color(); }
-        else if (kstrncmp(input, "info",   4) == 0) { cmd_info(); }
-        else if (kstrncmp(input, "reboot", 6) == 0) { reboot(); }
-        
-        else if (kstrncmp(input, "ls", 2) == 0) { fs_list(0); }
-        else if (kstrncmp(input, "mk", 2) == 0) { fs_mk(args, 0); }
-        else if (kstrncmp(input, "mkdir", 5) == 0) { fs_mkdir(args, 0); }
-
-        else if (kstrncmp(input, "cat", 3) == 0) {
+        if      (CMD_IS("help"))   { cmd_help(); }
+        else if (CMD_IS("clear"))  { vga_clear(); }
+        else if (CMD_IS("echo"))   { cmd_echo(args); }
+        else if (CMD_IS("color"))  { cmd_color(); }
+        else if (CMD_IS("info"))   { cmd_info(); }
+        else if (CMD_IS("reboot")) { reboot(); }
+        else if (CMD_IS("halt"))   { vga_println("Halting CPU. Goodbye."); __asm__ volatile("cli; hlt"); }
+        else if (CMD_IS("ls"))     { fs_list(0); }
+        else if (CMD_IS("mkdir"))  { fs_mkdir(args, 0); }
+        else if (CMD_IS("mk"))     { fs_mk(args, 0); }
+        else if (CMD_IS("cat")) {
             uint8_t buf[512];
+            kmemset(buf, 0, sizeof(buf));
             fs_read(args, 0, buf);
             buf[511] = '\0';
-
             vga_println((char*)buf);
         }
 
-        else if (kstrncmp(input, "wr", 2) == 0) {
-            fs_write(args, 0, (uint8_t*)args);
+        else if (CMD_IS("wr")) {
+            char fname[FS_NAME_LEN];
+            kstrncpy(fname, args, FS_NAME_LEN);
+
+            vga_print("content: ");
+            char wbuf[512];
+            read_ln(wbuf, sizeof(wbuf));
+
+            fs_write(fname, 0, (uint8_t*)wbuf);
         }
-        
-        else if (kstrncmp(input, "halt",   4) == 0) {
-            vga_println("Halting CPU. Goodbye.");
-            __asm__ volatile ("cli; hlt");
-        } 
-        
+
         else {
             vga_set_color(VGA_LIGHT_RED, VGA_BLACK);
             vga_print("Unknown command: ");
             vga_println(input);
             vga_set_color(VGA_LIGHT_GREY, VGA_BLACK);
         }
-
     }
 }
-
