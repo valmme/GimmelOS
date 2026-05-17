@@ -1,4 +1,4 @@
+
 make clean
-make all 2>&1
+make
 echo "=== Build OK ==="
-grub-mkrescue -o iso/gimmelos.iso iso/

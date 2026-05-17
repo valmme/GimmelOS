@@ -1,5 +1,4 @@
 #pragma once 
-#include <stddef.h>
 
 static inline size_t kstrlen(const char* s) {
     size_t n = 0;
@@ -21,4 +20,13 @@ static inline int kstrncmp(const char* a, const char* b, size_t n) {
 static inline void kmemset(void* dst, int val, size_t n) {
     unsigned char *p = (unsigned char*)dst;
     while (n--) *p++ = (unsigned char)val;
+}
+
+static inline void kstrcpy(char* dst, const char* src, size_t max) {
+    size_t i = 0;
+    for (; i < max - 1 && src[i]; i++) {
+        dst[i] = src[i];
+    }
+    
+    dst[i] = '\0';
 }

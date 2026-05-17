@@ -1,6 +1,7 @@
-#include <stdint.h>
 #include "vga.h"
 #include "keyboard.h"
+
+extern void* multiboot_info_ptr;
 
 void shell_run(void);
 

@@ -7,7 +7,7 @@
 
 # Quick Start
 ```sh
-qemu-system-i386 -cdrom iso/gimmelos.iso -m 32M
+qemu-system-i386 -cdrom build/gimmelos.iso -m 32M
 ```
 
 # Build

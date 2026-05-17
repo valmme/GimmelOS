@@ -1,6 +1,5 @@
 #pragma once
-#include <stdint.h>
-#include <stddef.h>
+#include "types.h"
 
 typedef enum {
     VGA_BLACK = 0, VGA_BLUE, VGA_GREEN, VGA_CYAN,
