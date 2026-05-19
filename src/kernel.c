@@ -1,5 +1,5 @@
-#include "vga.h"
-#include "keyboard.h"
+#include "drivers/vga/vga.h"
+#include "drivers/keyboard/keyboard.h"
 #include "filesystem/fs.h"
 
 extern void* multiboot_info_ptr;
@@ -13,7 +13,7 @@ void kernel_main(uint32_t multiboot_magic, uint32_t multiboot_info) {
     vga_info("VGA Initialized");
     keyboard_init();
 
-    // detect_disk();
+    detect_disk();
     fs_init();
 
     if (multiboot_magic != 0x2BADB002) {

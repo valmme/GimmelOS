@@ -1,6 +1,6 @@
 #include "fs.h"
-#include "../vga.h"
-#include "../kstring.h"
+#include "../drivers/vga/vga.h"
+#include "lib/kstring.h"
 
 static entry_t entries[FS_MAX_ENTRIES];
 static uint32_t next_free_sector = 100;

@@ -1,6 +1,6 @@
-#include "vga.h"
-#include "keyboard.h"
-#include "kstring.h"
+#include "drivers/vga/vga.h"
+#include "drivers/keyboard/keyboard.h"
+#include "lib/kstring.h"
 #include "filesystem/fs.h"
 
 #define CMD_IS(s) (cmd_len == sizeof(s)-1 && kstrncmp(input, s, cmd_len) == 0)

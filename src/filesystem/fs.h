@@ -1,5 +1,5 @@
 #pragma once
-#include "../types.h"
+#include "lib/types.h"
 
 #define FS_MAX_ENTRIES 16
 #define FS_NAME_LEN  16
