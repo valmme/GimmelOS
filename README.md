@@ -1,22 +1,26 @@
-<div align="center">
+# Disk setup (required)
 
-<img src="gimmel-os-logo.png" alt="GimmelOS" width="100%">
-<b>A lightweight and useless OS on C and ASM<br></b>
-
-</div>
-
-# Quick Start
+Create virtual disk:
 ```sh
-qemu-system-i386 -cdrom build/gimmelos.iso -m 32M
+qemu-img create -f raw disk.img 64M
+````
+
+# Run OS
+
+```sh
+qemu-system-i386 -cdrom build/gimmelos.iso -hda disk.img -m 32M
 ```
 
-# Build
+# First boot
+
+After first launch OS will auto-format disk.
+
+# Re-run (keep files)
+
+Just use same disk.img again:
+
 ```sh
-./build.sh
+qemu-system-i386 -cdrom build/gimmelos.iso -hda disk.img -m 32M
 ```
-or
-```sh
-make clean
-make all 2>&1
-grub-mkrescue -o iso/gimmelos.iso iso/
+
 ```

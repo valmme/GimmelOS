@@ -1,104 +1,168 @@
 #include "fs.h"
-#include "../drivers/vga/vga.h"
+#include "drivers/ata/ata.h"
 #include "lib/kstring.h"
+#include "drivers/vga/vga.h"
 
-static entry_t entries[FS_MAX_ENTRIES];
-static uint32_t next_free_sector = 100;
+static inode_t inodes[FS_MAX_INODES];
+static uint8_t bitmap[FS_MAX_BLOCKS / 8];
 
-static uint32_t alloc_sector(void) {
-    return next_free_sector++;
-}
-
-void fs_init(void) {
-    kmemset(entries, 0, sizeof(entries));
-}
-
-entry_t* fs_find(const char* name, uint32_t parent) {
-    for (int i = 0; i < FS_MAX_ENTRIES; i++) {
-        if (entries[i].type != FS_TYPE_FREE && kstrcmp(entries[i].name, name) == 0 && entries[i].parent == parent) {
-            return &entries[i];
+static int alloc_block() {
+    for (int i = 0; i < FS_MAX_BLOCKS; i++) {
+        if (!(bitmap[i / 8] & (1 << (i % 8)))) {
+            bitmap[i / 8] |= (1 << (i % 8));
+            return i + 3;
         }
     }
-    return 0;
+
+    return -1;
 }
 
-void fs_read(const char* name, uint32_t parent, uint8_t* buf) {
-    entry_t* f = fs_find(name, parent);
-    if (!f) return;
+void fs_init() {
+    uint8_t buf[512];
 
-    ata_read28(f->sector, buf);
-    buf[f->size] = '\0';
+    ata_read28(0, buf);
+    superblock_t* sb = (superblock_t*)buf;
+
+    if (sb->magic[0] != 'M') {
+        vga_info("Formatting disk...");
+
+        superblock_t new_sb = { "MINISF", 0 };
+        ata_write28(0, (uint8_t*)&new_sb);
+
+        kmemset(inodes, 0, sizeof(inodes));
+        ata_write28(1, (uint8_t*)inodes);
+
+        kmemset(bitmap, 0, 512);
+        ata_write28(2, bitmap);
+    }
+
+    else {
+        ata_read28(1, (uint8_t*)inodes);
+        ata_read28(2, bitmap);
+    }
 }
 
-void fs_write(const char* name, uint32_t parent, uint8_t* data) {
-    entry_t* f = fs_find(name, parent);
-    if (!f) return;
-
-    uint8_t block[512];
-    kmemset(block, 0, 512);
-    size_t data_len = kstrlen((char*)data);
-    if (data_len > 511) data_len = 511;
-
-    kstrncpy((char*)block, (char*)data, data_len);
-    block[data_len] = '\0';
-
-    ata_write28(f->sector, block);
-    f->size = data_len;
-    uint8_t debug_buf[512];
-    ata_read28(f->sector, debug_buf);
-}
-
-int fs_mkdir(const char* name, uint32_t parent) {
-    for (int i = 0; i < FS_MAX_ENTRIES; i++) {
-        if (entries[i].type == FS_TYPE_FREE) {
-            kmemset(entries[i].name, 0, FS_NAME_LEN);
-            kstrcpy(entries[i].name, name, FS_NAME_LEN);
-
-            entries[i].type = FS_TYPE_DIR;
-            entries[i].parent = parent;
-            entries[i].sector = alloc_sector();
-            entries[i].size = 0;
-
-            uint8_t zero[512];
-            kmemset(zero, 0, 512);
-            ata_write28(entries[i].sector, zero);
-
-            return 1;
+static int fs_find(const char* name, uint32_t parent) {
+    for (int i = 0; i < FS_MAX_INODES; i++) {
+        if (inodes[i].used &&
+            inodes[i].parent == parent &&
+            kstrcmp(inodes[i].name, name) == 0) {
+            return i;
         }
     }
-    return 0;
+    return -1;
+}
+
+int fs_create(const char* name, uint32_t parent, uint8_t is_dir) {
+    for (int i = 0; i < FS_MAX_INODES; i++) {
+        if (!inodes[i].used) {
+            inodes[i].used = 1;
+            inodes[i].is_dir = is_dir;
+            inodes[i].parent = parent;
+
+            kstrcpy(inodes[i].name, name, FS_MAX_NAME);
+            inodes[i].size = 0;
+
+            return i;
+        }
+    }
+
+    return -1;
+}
+
+int fs_write(const char* name, uint32_t parent, uint8_t* data, uint32_t size) {
+    int id = fs_find(name, parent);
+
+    if (id < 0) return 0;
+
+    if (size > 511) size = 511;
+
+    uint8_t buf[512];
+    kmemset(buf, 0, 512);
+    kstrncpy((char*)buf, (char*)data, size);
+
+    int lba = 3 + id;
+
+    ata_write28(lba, buf);
+
+    inodes[id].blocks[0] = lba;
+    inodes[id].size = size;
+
+    ata_write28(1, (uint8_t*)inodes);
+
+    return 1;
+}
+
+int fs_read(const char* name, uint32_t parent, uint8_t* out) {
+    int id = fs_find(name, parent);
+    if (id < 0) return 0;
+
+    if (!inodes[id].used) return 0;
+
+    ata_read28(inodes[id].blocks[0], out);
+    return 1;
 }
 
 int fs_mk(const char* name, uint32_t parent) {
-    for (int i = 0; i < FS_MAX_ENTRIES; i++) {
-        if (entries[i].type == FS_TYPE_FREE) {
-            kmemset(entries[i].name, 0, FS_NAME_LEN);
-            kstrcpy(entries[i].name, name, FS_NAME_LEN);
+    for (int i = 0; i < FS_MAX_INODES; i++) {
+        if (!inodes[i].used) {
+            inodes[i].used = 1;
+            inodes[i].is_dir = 0;
+            inodes[i].parent = parent;
+            inodes[i].size = 0;
 
-            entries[i].type = FS_TYPE_FILE;
-            entries[i].parent = parent;
-            entries[i].sector = alloc_sector();
-            entries[i].size = 0;
+            kstrcpy(inodes[i].name, name, FS_MAX_NAME);
 
             uint8_t zero[512];
             kmemset(zero, 0, 512);
-            ata_write28(entries[i].sector, zero);
 
-            return 1;
+            int lba = 3 + i;
+            inodes[i].blocks[0] = lba;
+
+            ata_write28(lba, zero);
+            ata_write28(1, (uint8_t*)inodes);
+
+            return i;
         }
     }
-    return 0;
+    return -1;
+}
+
+int fs_mkdir(const char* name, uint32_t parent) {
+    for (int i = 0; i < FS_MAX_INODES; i++) {
+        if (!inodes[i].used) {
+            inodes[i].used = 1;
+            inodes[i].is_dir = 1;
+            inodes[i].parent = parent;
+            inodes[i].size = 0;
+
+            kstrcpy(inodes[i].name, name, FS_MAX_NAME);
+
+            inodes[i].blocks[0] = 0;
+
+            ata_write28(1, (uint8_t*)inodes);
+
+            return i;
+        }
+    }
+    return -1;
 }
 
 void fs_list(uint32_t parent) {
-    for (int i = 0; i < FS_MAX_ENTRIES; i++) {
-        if (entries[i].type != FS_TYPE_FREE && entries[i].parent == parent) {
-            if (entries[i].type == FS_TYPE_DIR) {
-                vga_print("/");
+    for (int i = 0; i < FS_MAX_INODES; i++) {
+        if (inodes[i].used && inodes[i].parent == parent) {
+
+            if (inodes[i].is_dir) {
+                vga_set_color(VGA_LIGHT_BLUE, VGA_BLACK);
+                vga_print("[DIR] ");
+            } else {
+                vga_set_color(VGA_WHITE, VGA_BLACK);
+                vga_print("[FILE] ");
             }
 
-            vga_print(entries[i].name);
-            vga_putchar('\n');
+            vga_println(inodes[i].name);
         }
     }
+
+    vga_set_color(VGA_LIGHT_GREY, VGA_BLACK);
 }

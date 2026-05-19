@@ -27,6 +27,7 @@ static void update_hw_cursor(void) {
 void vga_init(void) {
     vga_attr = (uint8_t)((VGA_BLACK << 4) | VGA_LIGHT_GREY);
     vga_clear();
+    vga_info("VGA Initialized");
 }
 
 void vga_clear(void) {

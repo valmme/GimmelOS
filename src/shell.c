@@ -164,14 +164,14 @@ void shell_run(void) {
         }
 
         else if (CMD_IS("wr")) {
-            char fname[FS_NAME_LEN];
-            kstrncpy(fname, args, FS_NAME_LEN);
+            char fname[FS_MAX_NAME];
+            kstrncpy(fname, args, FS_MAX_NAME);
 
             vga_print("content: ");
             char wbuf[512];
             read_ln(wbuf, sizeof(wbuf));
 
-            fs_write(fname, 0, (uint8_t*)wbuf);
+            fs_write(fname, 0, (uint8_t*)wbuf, kstrlen(wbuf));
         }
 
         else {

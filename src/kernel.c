@@ -10,7 +10,6 @@ void kernel_main(uint32_t multiboot_magic, uint32_t multiboot_info) {
     (void)multiboot_info;
 
     vga_init();
-    vga_info("VGA Initialized");
     keyboard_init();
 
     detect_disk();
