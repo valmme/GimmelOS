@@ -28,3 +28,10 @@ int fs_mkdir(const char* name, uint32_t parent);
 int fs_mk(const char* name, uint32_t parent);
 int fs_rm(const char* name, uint32_t parent);
 int fs_rmdir(const char* name, uint32_t parent);
+
+int fs_find_in(const char* name, uint32_t parent);
+int fs_get_parent(int id);
+int fs_is_dir(int id);
+int fs_read_by_id(int id, uint8_t* out);
+int fs_write_by_id(int id, uint8_t* data, uint32_t size);
+int fs_split_path(const char* path, char* dir_out, char* name_out);
