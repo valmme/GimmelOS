@@ -204,3 +204,57 @@ void fs_list(uint32_t parent) {
 
     vga_set_color(VGA_LIGHT_GREY, VGA_BLACK);
 }
+
+int fs_find_in(const char *name, uint32_t parent) {
+    return fs_find(name, parent);
+}
+
+int fs_get_parent(int id) {
+    if (id < 0 || id >= FS_MAX_INODES || !inodes[id].used) return -1;
+    return (int)inodes[id].parent;
+}
+
+int fs_is_dir(int id) {
+    if (id < 0 || id >= FS_MAX_INODES || !inodes[id].used) return 0;
+    return inodes[id].is_dir;
+}
+
+int fs_read_by_id(int id, uint8_t* out) {
+    if (id < 0 || id >= FS_MAX_INODES || !inodes[id].used) return 0;
+    ata_read28(inodes[id].blocks[0], out);
+
+    return 1;
+}
+
+int fs_write_by_id(int id, uint8_t* data, uint32_t size) {
+    if (id < 0 || id >= FS_MAX_INODES || !inodes[id].used) return 0;
+    if (size > 511) size = 511;
+
+    uint8_t buf[512];
+    kmemset(buf, 0, 512);
+    kstrncpy((char *)buf, (char *)data, size);
+    ata_write28(inodes[id].blocks[0], buf);
+
+    inodes[id].size = size;
+    ata_write28(1, (uint8_t *)inodes);
+
+    return 1;
+}
+
+void fs_split_path(const char* path, char* dir_out, char* name_out) {
+    int last = -1;
+    for (int i = 0; path[i]; i++)
+        if (path[i] == '/') last = i;
+
+    if (last < 0) {
+        dir_out[0] = '\0';
+        kstrncpy(name_out, path, FS_MAX_NAME);
+    } 
+    
+    else {
+        kstrncpy(dir_out, path, last == 0 ? 1 : last);
+        dir_out[last == 0 ? 1 : last] = '\0';
+        kstrncpy(name_out, path + last + 1, FS_MAX_NAME);
+    }
+}
+
