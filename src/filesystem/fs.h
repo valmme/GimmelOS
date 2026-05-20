@@ -26,3 +26,5 @@ int fs_write(const char* name, uint32_t parent, uint8_t* data, uint32_t size);
 void fs_list(uint32_t parent);
 int fs_mkdir(const char* name, uint32_t parent);
 int fs_mk(const char* name, uint32_t parent);
+int fs_rm(const char* name, uint32_t parent);
+int fs_rmdir(const char* name, uint32_t parent);

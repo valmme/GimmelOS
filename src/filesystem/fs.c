@@ -148,6 +148,43 @@ int fs_mkdir(const char* name, uint32_t parent) {
     return -1;
 }
 
+int fs_rm(const char* name, uint32_t parent) {
+    int id = fs_find(name, parent);
+    if (id < 0) return 0;
+
+    if (inodes[id].is_dir) return 0;
+
+    if (inodes[id].blocks[0]) {
+        bitmap[inodes[id].blocks[0] - 3] = 0;
+    }
+
+    kmemset(&inodes[id], 0, sizeof(inode_t));
+
+    ata_write28(1, (uint8_t*)inodes);
+    ata_write28(2, bitmap);
+
+    return 1;
+}
+
+int fs_rmdir(const char* name, uint32_t parent) {
+    int id = fs_find(name, parent);
+    if (id < 0) return 0;
+
+    if (!inodes[id].is_dir) return 0;
+
+    for (int i = 0; i < FS_MAX_INODES; i++) {
+        if (inodes[i].used && inodes[i].parent == id) {
+            return 0;
+        }
+    }
+
+    kmemset(&inodes[id], 0, sizeof(inode_t));
+
+    ata_write28(1, (uint8_t*)inodes);
+
+    return 1;
+}
+
 void fs_list(uint32_t parent) {
     for (int i = 0; i < FS_MAX_INODES; i++) {
         if (inodes[i].used && inodes[i].parent == parent) {

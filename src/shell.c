@@ -155,7 +155,7 @@ void shell_run(void) {
         else if (CMD_IS("ls"))     { fs_list(0); }
         else if (CMD_IS("mkdir"))  { fs_mkdir(args, 0); }
         else if (CMD_IS("mk"))     { fs_mk(args, 0); }
-        else if (CMD_IS("cat")) {
+        else if (CMD_IS("rd")) {
             uint8_t buf[512];
             kmemset(buf, 0, sizeof(buf));
             fs_read(args, 0, buf);
@@ -172,6 +172,20 @@ void shell_run(void) {
             read_ln(wbuf, sizeof(wbuf));
 
             fs_write(fname, 0, (uint8_t*)wbuf, kstrlen(wbuf));
+        }
+
+        else if (CMD_IS("rm")) {
+            char fname[FS_MAX_NAME];
+            kstrncpy(fname, args, FS_MAX_NAME);
+
+            fs_rm(fname, 0);
+        }
+
+        else if (CMD_IS("rmdir")) {
+            char fname[FS_MAX_NAME];
+            kstrncpy(fname, args, FS_MAX_NAME);
+
+            fs_rmdir(fname, 0);
         }
 
         else {
