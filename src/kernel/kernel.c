@@ -1,3 +1,6 @@
+#include "interrupts/idt.h"
+#include "interrupts/irq.h"
+
 #include "drivers/vga/vga.h"
 #include "drivers/keyboard/keyboard.h"
 #include "filesystem/fs.h"
@@ -12,12 +15,14 @@ void kernel_main(uint32_t multiboot_magic, uint32_t multiboot_info) {
     vga_init();
     keyboard_init();
 
+    irq_remap();
+    idt_init();
+
     detect_disk();
     fs_init();
 
     if (multiboot_magic != 0x2BADB002) {
-        vga_set_color(VGA_LIGHT_RED, VGA_BLACK);
-        vga_println("WARNING: Not loaded by a Multiboot-compliant bootloader!");
+        vga_warn("Not loaded by a Multiboot-compliant bootloader!");
     }
 
     shell_run();

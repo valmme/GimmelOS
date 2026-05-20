@@ -205,11 +205,8 @@ void vga_info(const char* str) {
     vga_print_uint(s);
     vga_putchar(']');
 
-    vga_set_color(VGA_GREEN, VGA_BLACK);
-    vga_print(" [OK] ");
+    vga_print(" [INFO] ");
     vga_println(str);
-
-    vga_set_color(VGA_WHITE, VGA_BLACK);
 }
 
 void vga_error(const char* str) {
@@ -233,6 +230,58 @@ void vga_error(const char* str) {
 
     vga_set_color(VGA_RED, VGA_BLACK);
     vga_print(" [ERROR] ");
+    vga_println(str);
+
+    vga_set_color(VGA_WHITE, VGA_BLACK);
+}
+
+void vga_success(const char* str) {
+    uint8_t d, m, s, min, h;
+    uint16_t y;
+
+    get_date(&d, &m, &y);
+    get_time(&h, &min, &s);
+
+    vga_set_color(VGA_WHITE, VGA_BLACK);
+
+    vga_putchar('[');
+    vga_print_uint(d); vga_putchar('/');
+    vga_print_uint(m); vga_putchar('/');
+    vga_print_uint(y); vga_putchar(' ');
+
+    vga_print_uint(h); vga_putchar(':');
+    vga_print_uint(min); vga_putchar(':');
+    vga_print_uint(s);
+    vga_putchar(']');
+
+    vga_set_color(VGA_GREEN, VGA_BLACK);
+    vga_print(" [OK] ");
+    vga_println(str);
+
+    vga_set_color(VGA_WHITE, VGA_BLACK);
+}
+
+void vga_warn(const char* str) {
+    uint8_t d, m, s, min, h;
+    uint16_t y;
+
+    get_date(&d, &m, &y);
+    get_time(&h, &min, &s);
+
+    vga_set_color(VGA_WHITE, VGA_BLACK);
+
+    vga_putchar('[');
+    vga_print_uint(d); vga_putchar('/');
+    vga_print_uint(m); vga_putchar('/');
+    vga_print_uint(y); vga_putchar(' ');
+
+    vga_print_uint(h); vga_putchar(':');
+    vga_print_uint(min); vga_putchar(':');
+    vga_print_uint(s);
+    vga_putchar(']');
+
+    vga_set_color(VGA_LIGHT_MAGENTA, VGA_BLACK);
+    vga_print(" [WARNING] ");
     vga_println(str);
 
     vga_set_color(VGA_WHITE, VGA_BLACK);

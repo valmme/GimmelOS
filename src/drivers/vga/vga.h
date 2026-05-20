@@ -18,5 +18,8 @@ void vga_print_hex(uint32_t value);
 void vga_print_int(int32_t value);
 void vga_set_cursor(size_t row, size_t col);
 
+// log
 void vga_error(const char* str);
+void vga_success(const char* str);
 void vga_info(const char* str);
+void vga_warn(const char* str);
