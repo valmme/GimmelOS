@@ -1,5 +1,5 @@
 #include "ata.h"
-#include "io.h"
+#include "kernel/cpu/io.h"
 #include "../vga/vga.h"
 
 static int ata_wait() {

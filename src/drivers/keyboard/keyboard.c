@@ -1,5 +1,5 @@
 #include "keyboard.h"
-#include "io.h"
+#include "kernel/cpu/io.h"
 #include "lib/types.h"
  
 #define KBD_DATA_PORT  0x60
@@ -33,6 +33,16 @@ void keyboard_init(void) {
 
 int keyboard_haskey(void) {
     return (inb(KBD_STATUS_PORT) & 0x01) != 0;
+}
+
+void keyboard_handler() {
+    uint8_t scancode = inb(0x60);
+
+    vga_print("KEY ");
+    vga_print_hex(scancode);
+    vga_putchar('\n');
+
+    outb(0x20, 0x20);
 }
 
 char keyboard_getchar(void) {
