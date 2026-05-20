@@ -236,7 +236,6 @@ void shell_run(void) {
         if      (CMD_IS("help"))   cmd_help();
         else if (CMD_IS("clear"))  vga_clear();
         else if (CMD_IS("echo"))   { vga_set_color(VGA_LIGHT_GREY, VGA_BLACK); vga_println(args); }
-        else if (CMD_IS("color"))  cmd_color();
         else if (CMD_IS("info"))   cmd_info();
         else if (CMD_IS("pwd"))    vga_println(cwd_path);
         else if (CMD_IS("reboot")) reboot();
