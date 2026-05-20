@@ -52,36 +52,40 @@ void ata_write28(uint32_t lba, uint8_t *buf) {
     ata_wait(ATA_SR_DRDY, ATA_SR_BSY);
 }
 
-void detect_disk() {
+void detect_disk(void) {
     outb(ATA_DRIVE, 0xA0);
-    for (int i = 0; i < 1000000; i++) {
-        if (!(inb(ATA_STATUS) & ATA_SR_BSY)) break;
-    }
+    for (int i = 0; i < 15; i++) inb(ATA_STATUS);
 
+    outb(ATA_SECCOUNT, 0);
+    outb(ATA_LBA_LO,   0);
+    outb(ATA_LBA_MID,  0);
+    outb(ATA_LBA_HI,   0);
     outb(ATA_CMD, ATA_CMD_IDENTIFY);
 
     uint8_t status = inb(ATA_STATUS);
-    if (status == 0) { vga_error("ATA: no driver present"); return; }
+    if (status == 0x00) { vga_error("ATA: no drive present"); return; }
 
-    if (ata_wait(0, ATA_SR_BSY) <= 0) { vga_error("ATA: no response"); return; }
+    int timeout = 1000000;
+    while (--timeout) {
+        status = inb(ATA_STATUS);
+        if (!(status & ATA_SR_BSY)) break;
+    }
+    if (!timeout) { vga_error("ATA: no response"); return; }
 
-    if (inb(ATA_LBA_MID) || inb(ATA_LBA_HI)) {
-        vga_warn("ATA: ATAPI device - skipping");
+    if (inb(ATA_LBA_MID) != 0 || inb(ATA_LBA_HI) != 0) {
+        vga_warn("ATA: ATAPI device, skipping");
         return;
     }
 
-    if (ata_wait(ATA_SR_DRQ, ATA_SR_BSY) != 1) {
-        vga_error("ATA: IDENTIFY failed (DRQ)");
-        return;
-    }
-
-    if (inb(ATA_STATUS) & ATA_SR_ERR) {
-        vga_error("ATA error");
-        return;
+    while (1) {
+        status = inb(ATA_STATUS);
+        if (status & ATA_SR_ERR) { vga_error("ATA: IDENTIFY error"); return; }
+        if (status & ATA_SR_DRQ) break;
     }
 
     uint16_t id[256];
     for (int i = 0; i < 256; i++) id[i] = inw(ATA_DATA);
+    (void)id;
 
     vga_success("Disk found");
 }
