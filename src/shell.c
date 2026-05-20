@@ -3,6 +3,8 @@
 #include "lib/kstring.h"
 #include "filesystem/fs.h"
 
+#include "apps/editor.h"
+
 #define CMD_IS(s) (cmd_len == sizeof(s)-1 && kstrncmp(input, s, cmd_len) == 0)
 
 #define INPUT_MAX 256
@@ -45,9 +47,10 @@ static void cmd_help(void) {
 
     vga_println("");
 
-    vga_println("  mk    [name] - create file");
+    vga_println("  lito  [path] - open lito editor to edit file");
+    vga_println("  mk    [path] - create file");
     vga_println("  mkdir [path] - create directory");
-    vga_println("  cat   [path] - read file");
+    vga_println("  rd    [path] - read file");
     vga_println("  wr    [path] - write line in a file");
 }
 
@@ -178,6 +181,13 @@ void shell_run(void) {
             kstrncpy(fname, args, FS_MAX_NAME);
 
             fs_rmdir(fname, 0);
+        }
+        
+        else if (CMD_IS("lito")) {
+            char fname[FS_MAX_NAME];
+            kstrncpy(fname, args, FS_MAX_NAME);
+
+            editor_open(fname);
         }
 
         else {

@@ -2,14 +2,6 @@
 #include "kernel/cpu/io.h"
 #include "lib/types.h"
  
-#define KBD_DATA_PORT  0x60
-#define KBD_STATUS_PORT 0x64
-
-#define SC_LSHIFT   0x2A
-#define SC_RSHIFT   0x36
-#define SC_CAPS     0x3A
-#define KEY_RELEASE 0x80
- 
 static const char sc_ascii[128] = {
     0,   27,  '1', '2', '3', '4', '5', '6', '7', '8', '9', '0', '-', '=', '\b',
     '\t','q', 'w', 'e', 'r', 't', 'y', 'u', 'i', 'o', 'p', '[', ']', '\n',
@@ -27,6 +19,7 @@ static const char sc_shifted[128] = {
 };
 
 static int shift_held = 0;
+static int ctrl_held = 0;
 static int caps_lock = 0;
 
 void keyboard_init(void) {
@@ -38,21 +31,44 @@ int keyboard_haskey(void) {
     return (inb(KBD_STATUS_PORT) & 0x01) != 0;
 }
 
-char keyboard_getchar(void) {
+int keyboard_getchar(void) {
     while (1) {
         if (!keyboard_haskey()) continue;
 
         uint8_t sc = inb(KBD_DATA_PORT);
 
+        if (sc == 0xE0) {
+            uint8_t ext = inb(KBD_DATA_PORT);
+
+            switch (ext) {
+                case 0x48: return KEY_UP;
+                case 0x50: return KEY_DOWN;
+                case 0x4B: return KEY_LEFT;
+                case 0x4D: return KEY_RIGHT;
+            }
+
+            continue;
+        }
+
         if (sc & KEY_RELEASE) {
             uint8_t rel = sc & ~KEY_RELEASE;
-            if (rel == SC_LSHIFT || rel == SC_RSHIFT) shift_held = 0;
+
+            if (rel == SC_LSHIFT || rel == SC_RSHIFT)
+                shift_held = 0;
+
+            if (rel == SC_CTRL)
+                ctrl_held = 0;
 
             continue;
         }
 
         if (sc == SC_LSHIFT || sc == SC_RSHIFT) {
             shift_held = 1;
+            continue;
+        }
+
+        if (sc == SC_CTRL) {
+            ctrl_held = 1;
             continue;
         }
 
@@ -64,10 +80,13 @@ char keyboard_getchar(void) {
         char c = shift_held ? sc_shifted[sc] : sc_ascii[sc];
 
         if (caps_lock && c >= 'a' && c <= 'z') c -= 32;
-        if (caps_lock && c >= 'A' && c <= 'Z' && shift_held) c += 32;
+        if (caps_lock && c >= 'A' && c <= 'Z' && shift_held)c += 32;
+
+        if (ctrl_held) {
+            if (c == 's' || c == 'S') return 19;
+            if (c == 'z' || c == 'Z') return 26;
+        }
 
         if (c) return c;
     }
 }
-
-
