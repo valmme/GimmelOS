@@ -1,4 +1,5 @@
 #include "keyboard.h"
+#include "io.h"
 #include "lib/types.h"
  
 #define KBD_DATA_PORT  0x60
@@ -6,12 +7,6 @@
 
 #define SC_LSHIFT 0x2A
 #define SC_RSHIFT 0x36
- 
-static inline uint8_t inb(uint16_t port) {
-    uint8_t val;
-    __asm__ volatile ("inb %1, %0" : "=a"(val) : "Nd"(port));
-    return val;
-}
  
 static const char sc_ascii[128] = {
     0,   27,  '1', '2', '3', '4', '5', '6', '7', '8', '9', '0', '-', '=', '\b',

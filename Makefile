@@ -14,7 +14,7 @@ CFLAGS  = -m32 -ffreestanding -fno-stack-protector -fno-pic \
 		  -Wno-misleading-indentation -Wno-implicit-function-declaration -Wno-int-conversion
 
 ASFLAGS = -f elf32
-LDFLAGS = -m elf_i386 -T linker.ld
+LDFLAGS = -m elf_i386 -T src/boot/linker.ld
 
 C_SRCS  = $(shell find $(SRC_DIR) -name "*.c")
 AS_SRCS = $(shell find $(SRC_DIR) -name "*.asm")

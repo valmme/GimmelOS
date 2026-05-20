@@ -3,6 +3,8 @@
 #include "timer/pit.h"
 #include "memory/heap.h"
 
+#include "cpu/io.h"
+
 #include "drivers/vga/vga.h"
 #include "drivers/keyboard/keyboard.h"
 #include "filesystem/fs.h"
@@ -10,6 +12,7 @@
 extern void* multiboot_info_ptr;
 
 void shell_run(void);
+void panic(const char* msg);
 
 void kernel_main(uint32_t multiboot_magic, uint32_t multiboot_info) {
     (void)multiboot_info;
@@ -32,5 +35,10 @@ void kernel_main(uint32_t multiboot_magic, uint32_t multiboot_info) {
 
     shell_run();
     
-    __asm__ volatile("cli; hlt");
+    halt();
+}
+
+void panic(const char* msg) {
+    vga_error(("KERNEL PANIC: %s", msg));
+    halt();
 }

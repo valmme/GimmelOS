@@ -152,15 +152,16 @@ void fs_list(uint32_t parent) {
     for (int i = 0; i < FS_MAX_INODES; i++) {
         if (inodes[i].used && inodes[i].parent == parent) {
 
+            vga_set_color(VGA_WHITE, VGA_BLACK);
+            vga_print(inodes[i].name);
+
             if (inodes[i].is_dir) {
-                vga_set_color(VGA_LIGHT_BLUE, VGA_BLACK);
-                vga_print("[DIR] ");
-            } else {
-                vga_set_color(VGA_WHITE, VGA_BLACK);
-                vga_print("[FILE] ");
+                vga_println("/");
             }
 
-            vga_println(inodes[i].name);
+            else {
+                vga_putchar('\n');
+            }
         }
     }
 

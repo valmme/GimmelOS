@@ -1,4 +1,5 @@
 #include "vga.h"
+#include "io.h"
 
 #define VGA_WIDTH 80
 #define VGA_HEIGHT 25
@@ -7,10 +8,6 @@
 static size_t vga_row = 0;
 static size_t vga_col = 0;
 static uint8_t vga_attr = 0;
-
-static inline void outb(uint16_t port, uint8_t val) {
-    __asm__ volatile ("outb %0, %1" :: "a"(val), "Nd"(port));
-}
 
 static uint16_t vga_entry(char c, uint8_t attr) {
     return (uint16_t)c | ((uint16_t)attr << 8);
