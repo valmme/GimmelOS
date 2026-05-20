@@ -2,87 +2,86 @@
 #include "kernel/cpu/io.h"
 #include "../vga/vga.h"
 
-static int ata_wait() {
+static int ata_wait(uint8_t set_mask, uint8_t clear_mask) {
     for (int i = 0; i < 1000000; i++) {
-        uint8_t s = inb(0x1F7);
+        uint8_t s = inb(ATA_STATUS);
 
-        if (s & 0x01) return -1;
-        if (!(s & 0x80) && (s & 0x08)) return 1;
+        if (s & ATA_SR_ERR) return -1;
+        if (!(s & clear_mask) && (s & set_mask)) return 1;
     }
 
     return 0;
 }
 
-void ata_read28(uint32_t lba, uint8_t* buf) {
-    while (inb(0x1F7) & 0x80);
+static void lba28_setup(uint32_t lba, uint8_t drive_bits) {
+    while (inb(ATA_STATUS) & ATA_SR_BSY);
 
-    outb(0x1F6, 0xE0 | ((lba >> 24) & 0x0F));
-    outb(0x1F2, 1);
-    outb(0x1F3, (uint8_t)lba);
-    outb(0x1F4, (uint8_t)(lba >> 8));
-    outb(0x1F5, (uint8_t)(lba >> 16));
-    outb(0x1F7, 0x20);
-
-    if (ata_wait() != 1) return;
-
-    for (int i = 0; i < 256; i++) {
-        ((uint16_t*)buf)[i] = inw(0x1F0);
-    }
+    outb(ATA_DRIVE, 0xE0 | drive_bits | ((lba >> 24) & 0x0F));
+    outb(ATA_SECCOUNT, 1);
+    outb(ATA_LBA_LO, (uint8_t)lba);
+    outb(ATA_LBA_MID, (uint8_t)(lba >> 8));
+    outb(ATA_LBA_HI, (uint8_t)(lba >> 16));
 }
 
-void ata_write28(uint32_t lba, uint8_t* buf) {
-    while (inb(0x1F7) & 0x80);
-
-    outb(0x1F6, 0xE0 | ((lba >> 24) & 0x0F));
-    outb(0x1F2, 1);
-    outb(0x1F3, (uint8_t)lba);
-    outb(0x1F4, (uint8_t)(lba >> 8));
-    outb(0x1F5, (uint8_t)(lba >> 16));
-    outb(0x1F7, 0x30);
-
-    if (ata_wait() != 1) {
+void ata_read28(uint32_t lba, uint8_t *buf) {
+    lba28_setup(lba, 0);
+    outb(ATA_CMD, ATA_CMD_READ);
+ 
+    if (ata_wait(ATA_SR_DRQ, ATA_SR_BSY) != 1) {
+        vga_error("ATA read failed");
+        return;
+    }
+ 
+    for (int i = 0; i < 256; i++)
+        ((uint16_t *)buf)[i] = inw(ATA_DATA);
+}
+ 
+void ata_write28(uint32_t lba, uint8_t *buf) {
+    lba28_setup(lba, 0);
+    outb(ATA_CMD, ATA_CMD_WRITE);
+ 
+    if (ata_wait(ATA_SR_DRQ, ATA_SR_BSY) != 1) {
         vga_error("ATA write failed");
         return;
     }
-
-    for (int i = 0; i < 256; i++) {
-        outw(0x1F0, ((uint16_t*)buf)[i]);
-    }
-
-    outb(0x1F7, 0xE7);
-
-    ata_wait();
+ 
+    for (int i = 0; i < 256; i++)
+        outw(ATA_DATA, ((uint16_t *)buf)[i]);
+ 
+    outb(ATA_CMD, ATA_CMD_FLUSH);
+    ata_wait(ATA_SR_DRDY, ATA_SR_BSY);
 }
 
 void detect_disk() {
-    outb(0x1F6, 0xA0);
-
+    outb(ATA_DRIVE, 0xA0);
     for (int i = 0; i < 1000000; i++) {
-        if (!(inb(0x1F7) & 0x80)) break;
+        if (!(inb(ATA_STATUS) & ATA_SR_BSY)) break;
     }
 
-    outb(0x1F7, 0xEC);
+    outb(ATA_CMD, ATA_CMD_IDENTIFY);
 
-    if (!ata_wait(0x80, 0)) {
-        vga_error("ATA no response");
+    uint8_t status = inb(ATA_STATUS);
+    if (status == 0) { vga_error("ATA: no driver present"); return; }
+
+    if (ata_wait(0, ATA_SR_BSY) <= 0) { vga_error("ATA: no response"); return; }
+
+    if (inb(ATA_LBA_MID) || inb(ATA_LBA_HI)) {
+        vga_warn("ATA: ATAPI device - skipping");
         return;
     }
 
-    if (inb(0x1F7) & 0x01) {
+    if (ata_wait(ATA_SR_DRQ, ATA_SR_BSY) != 1) {
+        vga_error("ATA: IDENTIFY failed (DRQ)");
+        return;
+    }
+
+    if (inb(ATA_STATUS) & ATA_SR_ERR) {
         vga_error("ATA error");
         return;
     }
 
-    if (!ata_wait(0x88, 0x08)) {
-        vga_error("No disk (DRQ fail)");
-        return;
-    }
-
     uint16_t id[256];
+    for (int i = 0; i < 256; i++) id[i] = inw(ATA_DATA);
 
-    for (int i = 0; i < 256; i++) {
-        id[i] = inw(0x1F0);
-    }
-
-    vga_info("Disk OK");
+    vga_success("Disk found");
 }
