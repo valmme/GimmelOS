@@ -208,53 +208,6 @@ static void print_timestamp(void) {
     vga_putchar(']');
 }
 
-static uint8_t cmos_read(uint8_t reg) {
-    __asm__ volatile ("outb %1, %0" : : "dN"(0x70), "a"(reg));
-    uint8_t value;
-    __asm__ volatile ("inb %1, %0" : "=a"(value) : "dN"(0x71));
-    return value;
-}
-
-uint8_t bcd_to_bin(uint8_t v) {
-    return (v & 0x0F) + ((v >> 4) * 10);
-}
-
-uint16_t read_year() {
-    uint8_t year = bcd_to_bin(cmos_read(0x09));
-
-    if (year < 70) return 2000 + year;
-    return 1900 + year;
-}
-
-void get_date(uint8_t* d, uint8_t* m, uint16_t* y) {
-    *d = bcd_to_bin(cmos_read(0x07));
-    *m = bcd_to_bin(cmos_read(0x08));
-    *y = read_year();
-}
-
-void get_time(uint8_t* h, uint8_t* m, uint8_t* s) {
-    *s = bcd_to_bin(cmos_read(0x00));
-    *m = bcd_to_bin(cmos_read(0x02));
-    *h = bcd_to_bin(cmos_read(0x04));
-}
-
-void vga_print_uint(uint32_t value) {
-    char buf[10];
-    int i = 0;
-
-    if (value == 0) {
-        vga_putchar('0');
-        return;
-    }
-
-    while (value > 0) {
-        buf[i++] = '0' + (value % 10);
-        value /= 10;
-    }
-
-    while (i--) vga_putchar(buf[i]);
-}
-
 void vga_info(const char* str) {
     uint8_t d, m, s, min, h;
     uint16_t y;
