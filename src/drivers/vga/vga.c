@@ -238,18 +238,18 @@ void get_time(uint8_t* h, uint8_t* m, uint8_t* s) {
     *h = bcd_to_bin(cmos_read(0x04));
 }
 
-void vga_print_uint(uint32_t v) {
+void vga_print_uint(uint32_t value) {
     char buf[10];
     int i = 0;
 
-    if (v == 0) {
+    if (value == 0) {
         vga_putchar('0');
         return;
     }
 
-    while (v > 0) {
-        buf[i++] = '0' + (v % 10);
-        v /= 10;
+    while (value > 0) {
+        buf[i++] = '0' + (value % 10);
+        value /= 10;
     }
 
     while (i--) vga_putchar(buf[i]);
