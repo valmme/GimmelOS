@@ -48,6 +48,27 @@ static void cmd_help(void) {
     vga_println("  wr    [path] - write line in a file");
 }
 
+static void read_ln(char *buf, size_t maxlen) {
+    size_t i = 0;
+    while (1) {
+        char c = keyboard_getchar();
+        if (c == '\n' || c == '\r') {
+            buf[i] = '\0';
+            vga_putchar('\n');
+            return;
+        } 
+        
+        else if (c == '\b') {
+            if (i > 0) { i--; vga_putchar('\b'); }
+        } 
+        
+        else if (i < maxlen - 1) {
+            buf[i++] = c;
+            vga_putchar(c);
+        }
+    }
+}
+
 static void cmd_cd(const char *args) {
     if (!args || args[0] == '\0') {
         cwd_inode = 0;
@@ -188,27 +209,6 @@ static void reboot(void) {
 
     __asm__ volatile("outb %0, $0x64" :: "a"((uint8_t)0xFE));
     __asm__ volatile("hlt");
-}
-
-static void read_ln(char *buf, size_t maxlen) {
-    size_t i = 0;
-    while (1) {
-        char c = keyboard_getchar();
-        if (c == '\n' || c == '\r') {
-            buf[i] = '\0';
-            vga_putchar('\n');
-            return;
-        } 
-        
-        else if (c == '\b') {
-            if (i > 0) { i--; vga_putchar('\b'); }
-        } 
-        
-        else if (i < maxlen - 1) {
-            buf[i++] = c;
-            vga_putchar(c);
-        }
-    }
 }
 
 void shell_run(void) {
