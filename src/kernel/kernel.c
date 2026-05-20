@@ -1,8 +1,3 @@
-#include "interrupts/idt.h"
-#include "interrupts/irq.h"
-#include "timer/pit.h"
-#include "memory/heap.h"
-
 #include "cpu/io.h"
 
 #include "drivers/vga/vga.h"
@@ -19,12 +14,6 @@ void kernel_main(uint32_t multiboot_magic, uint32_t multiboot_info) {
 
     vga_init();
     keyboard_init();
-
-    irq_remap();
-    idt_init();
-
-    pit_init(100);
-    heap_init();
 
     detect_disk();
     fs_init();
