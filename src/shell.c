@@ -35,21 +35,20 @@ static void cmd_help(void) {
     vga_println("Available commands: ");
     vga_set_color(VGA_WHITE, VGA_BLACK);
 
-    vga_println("  help   — show this message");
-    vga_println("  clear  — clear the screen");
-    vga_println("  echo   — print text  (e.g. echo hello world)");
-    vga_println("  color  — cycle terminal colors");
-    vga_println("  reboot — soft reboot via keyboard controller");
-    vga_println("  halt   — halt the CPU");
-    vga_println("  info   — system info");
-    vga_println("  ls     — files list");
+    vga_println("  help   - show this message");
+    vga_println("  clear  - clear the screen");
+    vga_println("  echo   - print text  (e.g. echo hello world)");
+    vga_println("  reboot - soft reboot via keyboard controller");
+    vga_println("  halt   - halt the CPU");
+    vga_println("  info   - system info");
+    vga_println("  ls     - files list");
 
     vga_println("");
 
-    vga_println("  mk    [name] — create file");
-    vga_println("  mkdir [path] — create directory");
-    vga_println("  cat   [path] — read file");
-    vga_println("  wr    [path] — write line in a file");
+    vga_println("  mk    [name] - create file");
+    vga_println("  mkdir [path] - create directory");
+    vga_println("  cat   [path] - read file");
+    vga_println("  wr    [path] - write line in a file");
 }
 
 static void cmd_echo(const char *args) {
@@ -85,12 +84,6 @@ static void cmd_info(void) {
     vga_println("Disk: ATA (LBA28)");
     vga_println("============================");
     vga_set_color(VGA_LIGHT_GREY, VGA_BLACK);
-}
-
-static void cmd_color(void) {
-    color_idx = (color_idx + 1) % N_COLORS;
-    vga_set_color(fg_colors[color_idx], VGA_BLACK);
-    vga_println("Color changed! Type 'color' again to cycle.");
 }
 
 static void reboot(void) {
@@ -148,7 +141,6 @@ void shell_run(void) {
         if      (CMD_IS("help"))   { cmd_help(); }
         else if (CMD_IS("clear"))  { vga_clear(); }
         else if (CMD_IS("echo"))   { cmd_echo(args); }
-        else if (CMD_IS("color"))  { cmd_color(); }
         else if (CMD_IS("info"))   { cmd_info(); }
         else if (CMD_IS("reboot")) { reboot(); }
         else if (CMD_IS("halt"))   { vga_println("Halting CPU. Goodbye."); __asm__ volatile("cli; hlt"); }
