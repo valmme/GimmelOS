@@ -4,10 +4,13 @@
 #include "drivers/keyboard/keyboard.h"
 #include "filesystem/fs.h"
 
-extern void* multiboot_info_ptr;
-
 void shell_run(void);
-void panic(const char* msg);
+
+void panic(const char* msg) {
+    vga_error("--- KERNEL PANIC ---");
+    vga_error(msg);
+    halt();
+}
 
 void kernel_main(uint32_t multiboot_magic, uint32_t multiboot_info) {
     (void)multiboot_info;
@@ -23,11 +26,5 @@ void kernel_main(uint32_t multiboot_magic, uint32_t multiboot_info) {
     }
 
     shell_run();
-    
-    halt();
-}
-
-void panic(const char* msg) {
-    vga_error(("KERNEL PANIC: %s", msg));
     halt();
 }
