@@ -215,7 +215,10 @@ int fs_get_parent(int id) {
 }
 
 int fs_is_dir(int id) {
-    if (id < 0 || id >= FS_MAX_INODES || !inodes[id].used) return 0;
+    if (id < 0 || id >= FS_MAX_INODES) return 0;
+    if (id == 0) return 1;
+    if (!inodes[id].used) return 0;
+    
     return inodes[id].is_dir;
 }
 
@@ -258,3 +261,25 @@ void fs_split_path(const char* path, char* dir_out, char* name_out) {
     }
 }
 
+void fs_get_path(int id, char *out, size_t maxlen) {
+    if (id == 0) { kstrncpy(out, "/", maxlen); return; }
+
+    char segments[16][FS_MAX_NAME];
+    int depth = 0;
+    int cur = id;
+
+    while (cur != 0 && depth < 16) {
+        kstrncpy(segments[depth++], inodes[cur].name, FS_MAX_NAME);
+        cur = (int)inodes[cur].parent;
+    }
+
+    size_t pos = 0;
+    for (int i = depth - 1; i >= 0; i--) {
+        if (pos < maxlen - 1) out[pos++] = '/';
+
+        for (int j = 0; segments[i][j] && pos < maxlen - 1; j++)
+            out[pos++] = segments[i][j];
+    }
+    
+    out[pos] = '\0';
+}

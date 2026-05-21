@@ -41,11 +41,11 @@ static void cmd_help(void) {
 
     vga_println("");
 
-    vga_println("  lito  [path] - open lito editor to edit file");
-    vga_println("  mk    [path] - create file");
-    vga_println("  mkdir [path] - create directory");
-    vga_println("  rd    [path] - read file");
-    vga_println("  wr    [path] - write line in a file");
+    vga_println("  lito  [path]  - open lito editor to edit file");
+    vga_println("  mk    [path]  - create file");
+    vga_println("  mkdir [path]  - create directory");
+    vga_println("  cat    [path] - read file");
+    vga_println("  wr    [path]  - write line in a file");
 }
 
 static void read_ln(char *buf, size_t maxlen) {
@@ -70,18 +70,26 @@ static void read_ln(char *buf, size_t maxlen) {
 }
 
 static void cmd_cd(const char *args) {
-    if (!args || args[0] == '\0') {
+    if (!args || args[0] == '\0' || (args[0] == '~' && args[1] == '\0')) {
         cwd_inode = 0;
         kstrncpy(cwd_path, "/", PATH_MAX);
         return;
     }
 
+    char resolved_args[PATH_MAX];
+    if (args[0] == '~' && args[1] == '/') {
+        resolved_args[0] = '/';
+        kstrncpy(resolved_args + 1, args + 2, PATH_MAX - 1);
+        args = resolved_args;
+    }
+
     int target = resolve_path(args);
+
     if (target < 0) {
         vga_set_color(VGA_LIGHT_RED, VGA_BLACK);
         vga_print("cd: not found: ");
         vga_println(args);
-
+        vga_set_color(VGA_LIGHT_GREY, VGA_BLACK);
         return;
     }
 
@@ -89,23 +97,12 @@ static void cmd_cd(const char *args) {
         vga_set_color(VGA_LIGHT_RED, VGA_BLACK);
         vga_print("cd: not a directory: ");
         vga_println(args);
-
+        vga_set_color(VGA_LIGHT_GREY, VGA_BLACK);
         return;
     }
 
     cwd_inode = (uint32_t)target;
-
-    if (args[0] == '/') {
-        kstrncpy(cwd_path, args, PATH_MAX);
-    } 
-    
-    else if (args[0] == '.' && args[1] == '.' && kstrlen(args) == 2) {
-        path_pop(cwd_path);
-    } 
-    
-    else {
-        path_push(cwd_path, args);
-    }
+    fs_get_path(target, cwd_path, PATH_MAX);
 }
 
 static void cmd_ls(const char *args) {

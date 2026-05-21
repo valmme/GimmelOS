@@ -35,3 +35,4 @@ int fs_is_dir(int id);
 int fs_read_by_id(int id, uint8_t* out);
 int fs_write_by_id(int id, uint8_t* data, uint32_t size);
 void fs_split_path(const char* path, char* dir_out, char* name_out);
+void fs_get_path(int id, char* out, size_t maxlen);
