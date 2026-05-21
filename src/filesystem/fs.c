@@ -14,188 +14,147 @@ static int alloc_block() {
         }
     }
 
+    
     return -1;
+}
+
+static void free_block_lba(uint32_t lba) {
+    if (lba < 3 || lba >= FS_MAX_BLOCKS + 3) return;
+    int b = (int)lba - 3;
+    bitmap[b / 8] &= ~(1 << (b % 8));
 }
 
 void fs_init() {
     uint8_t buf[512];
-
     ata_read28(0, buf);
     superblock_t* sb = (superblock_t*)buf;
 
     if (sb->magic[0] != 'M') {
         vga_info("Formatting disk...");
-
         superblock_t new_sb = { "MINISF", 0 };
         ata_write28(0, (uint8_t*)&new_sb);
 
         kmemset(inodes, 0, sizeof(inodes));
+        kmemset(bitmap, 0, sizeof(bitmap));
+
+        inodes[0].used = 1;
+        inodes[0].is_dir = 1;
+        inodes[0].parent = 0;
+        kstrcpy(inodes[0].name, "/", FS_MAX_NAME);
+
         ata_write28(1, (uint8_t*)inodes);
-
-        kmemset(bitmap, 0, 512);
         ata_write28(2, bitmap);
-    }
-
+    } 
+    
     else {
         ata_read28(1, (uint8_t*)inodes);
         ata_read28(2, bitmap);
+        if (!inodes[0].used) {
+            inodes[0].used = 1;
+            inodes[0].is_dir = 1;
+            inodes[0].parent = 0;
+
+            kstrcpy(inodes[0].name, "/", FS_MAX_NAME);
+            ata_write28(1, (uint8_t*)inodes);
+        }
     }
 }
 
 static int fs_find(const char* name, uint32_t parent) {
     for (int i = 0; i < FS_MAX_INODES; i++) {
-        if (inodes[i].used &&
-            inodes[i].parent == parent &&
-            kstrcmp(inodes[i].name, name) == 0) {
+        if (inodes[i].used && inodes[i].parent == parent && kstrcmp(inodes[i].name, name) == 0) {
             return i;
         }
     }
+
     return -1;
 }
 
 int fs_create(const char* name, uint32_t parent, uint8_t is_dir) {
-    for (int i = 0; i < FS_MAX_INODES; i++) {
+    for (int i = 1; i < FS_MAX_INODES; i++) {
         if (!inodes[i].used) {
+
             inodes[i].used = 1;
             inodes[i].is_dir = is_dir;
             inodes[i].parent = parent;
-
             kstrcpy(inodes[i].name, name, FS_MAX_NAME);
             inodes[i].size = 0;
 
+            if (!is_dir) {
+                int lba = alloc_block();
+                if (lba < 0) {
+                    kmemset(&inodes[i], 0, sizeof(inode_t));
+                    return -1;
+                }
+
+                inodes[i].blocks[0] = lba;
+                uint8_t zero[512];
+                kmemset(zero, 0, sizeof(zero));
+                ata_write28(lba, zero);
+            }
+
+            ata_write28(1, (uint8_t*)inodes);
+            ata_write28(2, bitmap);
             return i;
         }
     }
-
     return -1;
 }
 
 int fs_write(const char* name, uint32_t parent, uint8_t* data, uint32_t size) {
     int id = fs_find(name, parent);
     if (id < 0) return 0;
-
+    if (inodes[id].is_dir) return 0;
     if (size > 511) size = 511;
 
     uint8_t buf[512];
-    kmemset(buf, 0, 512);
 
+    kmemset(buf, 0, sizeof(buf));
     kmemcpy(buf, data, size);
     buf[size] = 0;
 
-    int lba = 3 + id;
-
-    ata_write28(lba, buf);
-
-    inodes[id].blocks[0] = lba;
+    ata_write28(inodes[id].blocks[0], buf);
     inodes[id].size = size;
 
     ata_write28(1, (uint8_t*)inodes);
-
+    ata_write28(2, bitmap);
     return 1;
 }
 
 int fs_read(const char* name, uint32_t parent, uint8_t* out) {
     int id = fs_find(name, parent);
     if (id < 0) return 0;
-
-    if (!inodes[id].used) return 0;
+    if (!inodes[id].used || inodes[id].is_dir) return 0;
 
     ata_read28(inodes[id].blocks[0], out);
     return 1;
 }
 
 int fs_mk(const char* name, uint32_t parent) {
-    for (int i = 0; i < FS_MAX_INODES; i++) {
-        if (!inodes[i].used) {
-            inodes[i].used = 1;
-            inodes[i].is_dir = 0;
-            inodes[i].parent = parent;
-            inodes[i].size = 0;
-
-            kstrcpy(inodes[i].name, name, FS_MAX_NAME);
-
-            uint8_t zero[512];
-            kmemset(zero, 0, 512);
-
-            int lba = 3 + i;
-            inodes[i].blocks[0] = lba;
-
-            ata_write28(lba, zero);
-            ata_write28(1, (uint8_t*)inodes);
-
-            return i;
-        }
-    }
-    return -1;
+    return fs_create(name, parent, 0);
 }
 
 int fs_mkdir(const char* name, uint32_t parent) {
-    for (int i = 0; i < FS_MAX_INODES; i++) {
-        if (!inodes[i].used) {
-            inodes[i].used = 1;
-            inodes[i].is_dir = 1;
-            inodes[i].parent = parent;
-            inodes[i].size = 0;
-
-            kstrcpy(inodes[i].name, name, FS_MAX_NAME);
-
-            inodes[i].blocks[0] = 0;
-
-            ata_write28(1, (uint8_t*)inodes);
-
-            return i;
-        }
-    }
-    return -1;
+    return fs_create(name, parent, 1);
 }
 
 int fs_rm(const char* name, uint32_t parent) {
     int id = fs_find(name, parent);
     if (id < 0) return 0;
-
-    if (inodes[id].is_dir) return 0;
-
-    if (inodes[id].blocks[0] >= 3 && inodes[id].blocks[0] < FS_MAX_BLOCKS + 3) {
-        int b = inodes[id].blocks[0] - 3;
-        bitmap[b / 8] &= ~(1 << (b % 8));
-    }
-
-    kmemset(&inodes[id], 0, sizeof(inode_t));
-
-    ata_write28(1, (uint8_t*)inodes);
-    ata_write28(2, bitmap);
-
-    return 1;
+    return fs_rm_by_id(id);
 }
 
 int fs_rmdir(const char* name, uint32_t parent) {
     int id = fs_find(name, parent);
     if (id < 0) return 0;
-
-    if (!inodes[id].is_dir) return 0;
-
-    for (int i = 0; i < FS_MAX_INODES; i++) {
-        if (inodes[i].used && inodes[i].parent == id) {
-            return 0;
-        }
-    }
-
-    kmemset(&inodes[id], 0, sizeof(inode_t));
-
-    ata_write28(1, (uint8_t*)inodes);
-
-    return 1;
+    return fs_rmdir_by_id(id);
 }
 
 int fs_rm_by_id(int id) {
-    if (id < 0 || id >= FS_MAX_INODES || !inodes[id].used) return 0;
+    if (id <= 0 || id >= FS_MAX_INODES || !inodes[id].used) return 0;
     if (inodes[id].is_dir) return 0;
 
-    if (inodes[id].blocks[0]) {
-        int b = inodes[id].blocks[0] - 3;
-        if (b >= 0) bitmap[b / 8] &= ~(1 << (b % 8));
-    }
-
+    free_block_lba(inodes[id].blocks[0]);
     kmemset(&inodes[id], 0, sizeof(inode_t));
     ata_write28(1, (uint8_t*)inodes);
     ata_write28(2, bitmap);
@@ -203,16 +162,11 @@ int fs_rm_by_id(int id) {
 }
 
 int fs_rmdir_by_id(int id) {
-    if (id < 0 || id >= FS_MAX_INODES || !inodes[id].used) return 0;
+    if (id <= 0 || id >= FS_MAX_INODES || !inodes[id].used) return 0;
     if (!inodes[id].is_dir) return 0;
-
     for (int i = 0; i < FS_MAX_INODES; i++) {
-        if (inodes[i].used && (int)inodes[i].parent == id) {
-            vga_print("DEBUG not empty, child at i=");
-            vga_print_int(i);
-            vga_println(inodes[i].name);
-            return 0;
-        }
+        if (i == id) continue;
+        if (inodes[i].used && inodes[i].parent == (uint32_t)id) return 0;
     }
 
     kmemset(&inodes[id], 0, sizeof(inode_t));
@@ -223,17 +177,10 @@ int fs_rmdir_by_id(int id) {
 void fs_list(uint32_t parent) {
     for (int i = 0; i < FS_MAX_INODES; i++) {
         if (inodes[i].used && inodes[i].parent == parent) {
-
             vga_set_color(VGA_WHITE, VGA_BLACK);
             vga_print(inodes[i].name);
-
-            if (inodes[i].is_dir) {
-                vga_println("/");
-            }
-
-            else {
-                vga_putchar('\n');
-            }
+            if (inodes[i].is_dir) vga_println("/");
+            else vga_putchar('\n');
         }
     }
 
@@ -245,44 +192,39 @@ int fs_find_in(const char *name, uint32_t parent) {
 }
 
 int fs_get_parent(int id) {
-    if (id <= 0) return 0;
     if (id < 0 || id >= FS_MAX_INODES || !inodes[id].used) return -1;
     return (int)inodes[id].parent;
 }
 
 int fs_is_dir(int id) {
-    if (id < 0 || id >= FS_MAX_INODES) return 0;
-    if (!inodes[id].used) return 0;
-    
+    if (id < 0 || id >= FS_MAX_INODES || !inodes[id].used) return 0;
     return inodes[id].is_dir;
 }
 
 int fs_read_by_id(int id, uint8_t* out) {
-    if (id < 0 || id >= FS_MAX_INODES || !inodes[id].used) return 0;
+    if (id < 0 || id >= FS_MAX_INODES || !inodes[id].used || inodes[id].is_dir) return 0;
     ata_read28(inodes[id].blocks[0], out);
-
     return 1;
 }
 
 int fs_write_by_id(int id, uint8_t* data, uint32_t size) {
-    if (id < 0 || id >= FS_MAX_INODES || !inodes[id].used) return 0;
+    if (id < 0 || id >= FS_MAX_INODES || !inodes[id].used || inodes[id].is_dir) return 0;
     if (size > 511) size = 511;
 
     uint8_t buf[512];
-    kmemset(buf, 0, 512);
+
+    kmemset(buf, 0, sizeof(buf));
     kstrncpy((char *)buf, (char *)data, size);
     ata_write28(inodes[id].blocks[0], buf);
-
     inodes[id].size = size;
-    ata_write28(1, (uint8_t *)inodes);
 
+    ata_write28(1, (uint8_t *)inodes);
     return 1;
 }
 
 void fs_split_path(const char* path, char* dir_out, char* name_out) {
     int last = -1;
-    for (int i = 0; path[i]; i++)
-        if (path[i] == '/') last = i;
+    for (int i = 0; path[i]; i++) if (path[i] == '/') last = i;
 
     if (last < 0) {
         dir_out[0] = '\0';
@@ -290,20 +232,30 @@ void fs_split_path(const char* path, char* dir_out, char* name_out) {
     } 
     
     else {
-        kstrncpy(dir_out, path, last == 0 ? 1 : last);
-        dir_out[last == 0 ? 1 : last] = '\0';
+        if (last == 0) {
+            dir_out[0] = '/';
+            dir_out[1] = '\0';
+        } 
+        
+        else {
+            kstrncpy(dir_out, path, last);
+            dir_out[last] = '\0';
+        }
         kstrncpy(name_out, path + last + 1, FS_MAX_NAME);
     }
 }
 
 void fs_get_path(int id, char *out, size_t maxlen) {
-    if (id == 0) { kstrncpy(out, "/", maxlen); return; }
+    if (id == 0) {
+        kstrncpy(out, "/", maxlen);
+        return;
+    }
 
     char segments[16][FS_MAX_NAME];
     int depth = 0;
     int cur = id;
 
-    while (cur != 0 && depth < 16) {
+    while (cur > 0 && cur < FS_MAX_INODES && depth < 16) {
         kstrncpy(segments[depth++], inodes[cur].name, FS_MAX_NAME);
         cur = (int)inodes[cur].parent;
     }
@@ -311,10 +263,9 @@ void fs_get_path(int id, char *out, size_t maxlen) {
     size_t pos = 0;
     for (int i = depth - 1; i >= 0; i--) {
         if (pos < maxlen - 1) out[pos++] = '/';
-
-        for (int j = 0; segments[i][j] && pos < maxlen - 1; j++)
-            out[pos++] = segments[i][j];
+        for (int j = 0; segments[i][j] && pos < maxlen - 1; j++) out[pos++] = segments[i][j];
     }
-    
+
+    if (pos == 0 && maxlen > 0) out[pos++] = '/';
     out[pos] = '\0';
 }
