@@ -17,12 +17,11 @@ static void cpuid(uint32_t code, uint32_t* a, uint32_t* b, uint32_t* c, uint32_t
 
 static void draw_logo(void) {
     vga_set_color(VGA_LIGHT_CYAN, VGA_BLACK);
-    vga_println("  _____ _                          _  ____   _____ ");
-    vga_println(" / ____(_)                        | |/ __ \\ / ____|");
-    vga_println("| |  __ _ _ __ ___  _ __ ___   ___| | |  | | (___  ");
-    vga_println("| | |_ | | '_ ` _ \\| '_ ` _ \\ / _ \\ | |  | |\\___ \\ ");
-    vga_println("| |__| | | | | | | | | | | | |  __/ | |__| |____) |");
-    vga_println(" \\_____|_|_| |_| |_|_| |_| |_|\\___|_|\\____/|_____/ v0.1");
+    vga_println("+-----------------------------------------+");
+    vga_set_color(VGA_WHITE, VGA_BLACK);
+    vga_println("|          G i m m e l O S  v0.1          |");
+    vga_set_color(VGA_LIGHT_CYAN, VGA_BLACK);
+    vga_println("+-----------------------------------------+");
     vga_putchar('\n');
     vga_set_color(VGA_LIGHT_GREY, VGA_BLACK);
 }

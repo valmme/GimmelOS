@@ -87,5 +87,5 @@ void detect_disk(void) {
     for (int i = 0; i < 256; i++) id[i] = inw(ATA_DATA);
     (void)id;
 
-    vga_success("Disk found");
+    vga_info("Disk found");
 }
