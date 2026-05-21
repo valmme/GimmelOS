@@ -7,8 +7,9 @@
 #include "apps/editor.h"
 
 #define CMD_IS(s) (cmd_len == sizeof(s)-1 && kstrncmp(input, s, cmd_len) == 0)
-
 #define INPUT_MAX 256
+
+static char wbuf[512]; 
 
 static void cpuid(uint32_t code, uint32_t* a, uint32_t* b, uint32_t* c, uint32_t* d) {
     __asm__ volatile("cpuid" : "=a"(*a), "=b"(*b), "=c"(*c), "=d"(*d) : "a"(code));
@@ -208,9 +209,36 @@ static void reboot(void) {
     __asm__ volatile("hlt");
 }
 
+static void read_command(char input[INPUT_MAX]) {
+    if (input[0] == '\0') return;
+
+    size_t cmd_len = 0;
+    while (input[cmd_len] && input[cmd_len] != ' ') cmd_len++;
+    const char *args = (input[cmd_len] == ' ') ? &input[cmd_len + 1] : "";
+
+    if      (CMD_IS("help"))   cmd_help();
+    else if (CMD_IS("clear"))  vga_clear();
+    else if (CMD_IS("echo"))   { vga_set_color(VGA_LIGHT_GREY, VGA_BLACK); vga_println(args); }
+    else if (CMD_IS("info"))   cmd_info();
+    else if (CMD_IS("pwd"))    vga_println(cwd_path);
+    else if (CMD_IS("reboot")) reboot();
+    else if (CMD_IS("halt"))   { vga_println("Halting. Goodbye."); __asm__ volatile("cli; hlt"); }
+    else if (CMD_IS("ls"))     cmd_ls(args);
+    else if (CMD_IS("cd"))     cmd_cd(args);
+    else if (CMD_IS("mkdir"))  cmd_mkdir(args);
+    else if (CMD_IS("mk"))     cmd_mk(args);
+    else if (CMD_IS("cat"))    cmd_cat(args);
+    else if (CMD_IS("wr"))     cmd_wr(args, wbuf, sizeof(wbuf));
+    else {
+        vga_set_color(VGA_LIGHT_RED, VGA_BLACK);
+        vga_print("Unknown command: ");
+        vga_println(input);
+        vga_set_color(VGA_LIGHT_GREY, VGA_BLACK);
+    }    
+}
+
 void shell_run(void) {
     char input[INPUT_MAX];
-    char wbuf[512];
 
     draw_logo();
     vga_println("Type 'help' for available commands.");
@@ -224,30 +252,6 @@ void shell_run(void) {
         vga_set_color(VGA_LIGHT_GREY, VGA_BLACK);
 
         read_ln(input, INPUT_MAX);
-        if (input[0] == '\0') continue;
-
-        size_t cmd_len = 0;
-        while (input[cmd_len] && input[cmd_len] != ' ') cmd_len++;
-        const char *args = (input[cmd_len] == ' ') ? &input[cmd_len + 1] : "";
-
-        if      (CMD_IS("help"))   cmd_help();
-        else if (CMD_IS("clear"))  vga_clear();
-        else if (CMD_IS("echo"))   { vga_set_color(VGA_LIGHT_GREY, VGA_BLACK); vga_println(args); }
-        else if (CMD_IS("info"))   cmd_info();
-        else if (CMD_IS("pwd"))    vga_println(cwd_path);
-        else if (CMD_IS("reboot")) reboot();
-        else if (CMD_IS("halt"))   { vga_println("Halting. Goodbye."); __asm__ volatile("cli; hlt"); }
-        else if (CMD_IS("ls"))     cmd_ls(args);
-        else if (CMD_IS("cd"))     cmd_cd(args);
-        else if (CMD_IS("mkdir"))  cmd_mkdir(args);
-        else if (CMD_IS("mk"))     cmd_mk(args);
-        else if (CMD_IS("cat"))    cmd_cat(args);
-        else if (CMD_IS("wr"))     cmd_wr(args, wbuf, sizeof(wbuf));
-        else {
-            vga_set_color(VGA_LIGHT_RED, VGA_BLACK);
-            vga_print("Unknown command: ");
-            vga_println(input);
-            vga_set_color(VGA_LIGHT_GREY, VGA_BLACK);
-        }
+        read_command(input);
     }
 }
