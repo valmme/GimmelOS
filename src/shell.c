@@ -163,6 +163,15 @@ static void cmd_wr(const char *args, char *read_buf, size_t bufsz) {
     fs_write_by_id(id, (uint8_t *)read_buf, kstrlen(read_buf));
 }
 
+static void cmd_lito(const char* args) {
+    if (!args || !args[0]) { vga_println("lito: missing path"); return; }
+    
+    char fname[FS_MAX_NAME];
+    kstrncpy(fname, args, FS_MAX_NAME);
+
+    editor_open(fname);
+}
+
 static void cmd_echo(const char *args) {
     vga_set_color(VGA_LIGHT_GREY, VGA_BLACK);
     vga_println(args);
@@ -224,6 +233,7 @@ static void read_command(char input[INPUT_MAX]) {
     else if (CMD_IS("halt"))   { vga_println("Halting. Goodbye."); __asm__ volatile("cli; hlt"); }
     else if (CMD_IS("ls"))     cmd_ls(args);
     else if (CMD_IS("cd"))     cmd_cd(args);
+    else if (CMD_IS("lito"))   cmd_lito(args);
     else if (CMD_IS("mkdir"))  cmd_mkdir(args);
     else if (CMD_IS("mk"))     cmd_mk(args);
     else if (CMD_IS("cat"))    cmd_cat(args);
