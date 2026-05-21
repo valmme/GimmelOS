@@ -1,2 +1,4 @@
 disk/
+disk.img
+build/
 run.sh
