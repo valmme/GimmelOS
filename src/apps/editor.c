@@ -177,6 +177,12 @@ void editor_open(const char* filename) {
             continue;
         }
 
+        if (c == '\t') {
+            for (int i = 0; i < 4; i++) {
+                insert_char(' ');
+            }
+        }
+        
         if (c == '\b') {
             delete_char();
             continue;

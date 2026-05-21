@@ -14,6 +14,8 @@
 #define KEY_LEFT  1003
 #define KEY_RIGHT 1004
 
+#define KEY_TAB   0x0F
+
 void keyboard_init(void);
 int keyboard_getchar(void);
 int keyboard_haskey(void);
