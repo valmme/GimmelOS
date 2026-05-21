@@ -13,12 +13,34 @@ static int len = 0;
 static int cursor_x = 0;
 
 static const char* keywords[] = {
-    "int", "char", "void", "if", "else", "for", "while", "return", "static"
+    "int", "char", "void", "if", "else", "for", "while", "return", "static", "const", "struct", "typedef", "enum",
+    "float", "double", "long", "short", "unsigned", "signed", "switch", "case", "default", "break", "continue",
+    "volatile", "extern", "inline", "bool", "sizeof", "string", "class", "public", "private", "protected", "virtual", 
+    "override", "namespace", "using", "this", "try", "except", "throw", "catch", "uint8_t", "uint16_t", "uint32_t", "uint64_t"
 };
 
 static const char* macros[] = {
     "#include", "#define", "#undef", "#if", "#ifdef", "#ifndef", "#elif", "#else", "#endif", "#error", "#line", "#pragma"
 };
+
+static int ends_with(const char* str, const char* ext) {
+    int slen = kstrlen(str);
+    int elen = kstrlen(ext);
+
+    if (slen < elen)
+        return 0;
+
+    return kstrcmp(str + slen - elen, ext) == 0;
+}
+
+static int is_c_file(const char* filename) {
+    return
+        ends_with(filename, ".c")   ||
+        ends_with(filename, ".h")   ||
+        ends_with(filename, ".cc")  ||
+        ends_with(filename, ".cpp") ||
+        ends_with(filename, ".hpp");
+}
 
 static void get_cursor(int pos, int* x, int* y) {
     int col = 0;
@@ -187,7 +209,7 @@ static void draw_with_syntax() {
             int color = VGA_WHITE;
 
             if (is_kw) color = VGA_LIGHT_BLUE;
-            else if (is_func) color = VGA_LIGHT_MAGENTA;
+            else if (is_func) color = VGA_LIGHT_BROWN;
 
             vga_set_color(color, VGA_BLACK);
 
@@ -229,7 +251,8 @@ static void editor_draw(const char* filename) {
     vga_set_cursor(3, 0);
     vga_set_color(VGA_WHITE, VGA_BLACK);
 
-    draw_with_syntax();
+    if (is_c_file(filename)) draw_with_syntax();
+    else vga_print(buf);
 
     int row, col;
     get_cursor(cursor_x, &col, &row);

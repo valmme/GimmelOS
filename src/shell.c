@@ -44,11 +44,13 @@ static void cmd_help(void) {
     vga_println("  lito  [path]  - open lito editor to edit file");
     vga_println("  mk    [path]  - create file");
     vga_println("  mkdir [path]  - create directory");
-    vga_println("  cat    [path] - read file");
+    vga_println("  rm    [path]  - remove file");
+    vga_println("  rmdir [path]  - remove directory");
+    vga_println("  cat   [path]  - read file");
     vga_println("  wr    [path]  - write line in a file");
 }
 
-static void read_ln(char *buf, size_t maxlen) {
+static void read_ln(char* buf, size_t maxlen) {
     size_t i = 0;
     while (1) {
         char c = keyboard_getchar();
@@ -69,7 +71,7 @@ static void read_ln(char *buf, size_t maxlen) {
     }
 }
 
-static void cmd_cd(const char *args) {
+static void cmd_cd(const char* args) {
     if (!args || args[0] == '\0' || (args[0] == '~' && args[1] == '\0')) {
         cwd_inode = 0;
         kstrncpy(cwd_path, "/", PATH_MAX);
@@ -105,7 +107,7 @@ static void cmd_cd(const char *args) {
     fs_get_path(target, cwd_path, PATH_MAX);
 }
 
-static void cmd_ls(const char *args) {
+static void cmd_ls(const char* args) {
     int target = (args && args[0]) ? resolve_path(args) : (int)cwd_inode;
     if (target < 0) {
         vga_set_color(VGA_LIGHT_RED, VGA_BLACK);
@@ -117,7 +119,7 @@ static void cmd_ls(const char *args) {
     fs_list((uint32_t)target);
 }
 
-static void cmd_mk(const char *args) {
+static void cmd_mk(const char* args) {
     if (!args || !args[0]) { vga_println("mk: missing name"); return; }
 
     char dir[PATH_MAX]; char name[FS_MAX_NAME];
@@ -128,7 +130,7 @@ static void cmd_mk(const char *args) {
     if (fs_mk(name, (uint32_t)parent) < 0) vga_error("mk: failed (disk full?)");
 }
 
-static void cmd_mkdir(const char *args) {
+static void cmd_mkdir(const char* args) {
     if (!args || !args[0]) { vga_println("mkdir: missing name"); return; }
 
     char dir[PATH_MAX]; char name[FS_MAX_NAME];
@@ -140,7 +142,7 @@ static void cmd_mkdir(const char *args) {
     if (fs_mkdir(name, (uint32_t)parent) < 0) vga_error("mkdir: failed (disk full?)");
 }
 
-static void cmd_cat(const char *args) {
+static void cmd_cat(const char* args) {
     if (!args || !args[0]) { vga_println("cat: missing path"); return; }
     int id = resolve_path(args);
     if (id < 0) { vga_error("cat: file not found"); return; }
@@ -153,14 +155,32 @@ static void cmd_cat(const char *args) {
     vga_println((char *)buf);
 }
 
-static void cmd_wr(const char *args, char *read_buf, size_t bufsz) {
+static void cmd_wr(const char* args, char* read_buf, size_t bufsz) {
     if (!args || !args[0]) { vga_println("wr: missing path"); return; }
     int id = resolve_path(args);
     if (id < 0) { vga_error("wr: file not found"); return; }
 
     vga_print("content: ");
     read_ln(read_buf, bufsz);
-    fs_write_by_id(id, (uint8_t *)read_buf, kstrlen(read_buf));
+    fs_write_by_id(id, (uint8_t*)read_buf, kstrlen(read_buf));
+}
+
+static void cmd_rm(const char* args) {
+    if (!args || !args[0]) { vga_println("rm: missing path"); return; }
+    int id = resolve_path(args);
+    
+    if (id < 0) { vga_error("rm: not found"); return; }
+    if (fs_is_dir(id)) { vga_error("rm: is a directory, use rmdir"); return; }
+    if (!fs_rm_by_id(id)) vga_error("rm: failed");
+}
+
+static void cmd_rmdir(const char* args) {
+    if (!args || !args[0]) { vga_println("rmdir: missing path"); return; }
+    int id = resolve_path(args);
+
+    if (id < 0) { vga_error("rmdir: not found"); return; }
+    if (!fs_is_dir(id)) { vga_error("rmdir: not a directory"); return; }
+    if (!fs_rmdir_by_id(id)) vga_error("rmdir: failed");
 }
 
 static void cmd_lito(const char* args) {
@@ -236,6 +256,8 @@ static void read_command(char input[INPUT_MAX]) {
     else if (CMD_IS("lito"))   cmd_lito(args);
     else if (CMD_IS("mkdir"))  cmd_mkdir(args);
     else if (CMD_IS("mk"))     cmd_mk(args);
+    else if (CMD_IS("rm"))     cmd_rm(args);
+    else if (CMD_IS("rmdir"))  cmd_rmdir(args);
     else if (CMD_IS("cat"))    cmd_cat(args);
     else if (CMD_IS("wr"))     cmd_wr(args, wbuf, sizeof(wbuf));
     else {

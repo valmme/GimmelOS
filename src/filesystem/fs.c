@@ -155,8 +155,9 @@ int fs_rm(const char* name, uint32_t parent) {
 
     if (inodes[id].is_dir) return 0;
 
-    if (inodes[id].blocks[0]) {
-        bitmap[inodes[id].blocks[0] - 3] = 0;
+    if (inodes[id].blocks[0] >= 3 && inodes[id].blocks[0] < FS_MAX_BLOCKS + 3) {
+        int b = inodes[id].blocks[0] - 3;
+        bitmap[b / 8] &= ~(1 << (b % 8));
     }
 
     kmemset(&inodes[id], 0, sizeof(inode_t));
@@ -186,6 +187,39 @@ int fs_rmdir(const char* name, uint32_t parent) {
     return 1;
 }
 
+int fs_rm_by_id(int id) {
+    if (id < 0 || id >= FS_MAX_INODES || !inodes[id].used) return 0;
+    if (inodes[id].is_dir) return 0;
+
+    if (inodes[id].blocks[0]) {
+        int b = inodes[id].blocks[0] - 3;
+        if (b >= 0) bitmap[b / 8] &= ~(1 << (b % 8));
+    }
+
+    kmemset(&inodes[id], 0, sizeof(inode_t));
+    ata_write28(1, (uint8_t*)inodes);
+    ata_write28(2, bitmap);
+    return 1;
+}
+
+int fs_rmdir_by_id(int id) {
+    if (id < 0 || id >= FS_MAX_INODES || !inodes[id].used) return 0;
+    if (!inodes[id].is_dir) return 0;
+
+    for (int i = 0; i < FS_MAX_INODES; i++) {
+        if (inodes[i].used && (int)inodes[i].parent == id) {
+            vga_print("DEBUG not empty, child at i=");
+            vga_print_int(i);
+            vga_println(inodes[i].name);
+            return 0;
+        }
+    }
+
+    kmemset(&inodes[id], 0, sizeof(inode_t));
+    ata_write28(1, (uint8_t*)inodes);
+    return 1;
+}
+
 void fs_list(uint32_t parent) {
     for (int i = 0; i < FS_MAX_INODES; i++) {
         if (inodes[i].used && inodes[i].parent == parent) {
@@ -211,13 +245,13 @@ int fs_find_in(const char *name, uint32_t parent) {
 }
 
 int fs_get_parent(int id) {
+    if (id <= 0) return 0;
     if (id < 0 || id >= FS_MAX_INODES || !inodes[id].used) return -1;
     return (int)inodes[id].parent;
 }
 
 int fs_is_dir(int id) {
     if (id < 0 || id >= FS_MAX_INODES) return 0;
-    if (id == 0) return 1;
     if (!inodes[id].used) return 0;
     
     return inodes[id].is_dir;
