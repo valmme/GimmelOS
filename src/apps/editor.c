@@ -12,6 +12,14 @@ static char buf[EDITOR_BUF];
 static int len = 0;
 static int cursor_x = 0;
 
+static const char* keywords[] = {
+    "int", "char", "void", "if", "else", "for", "while", "return", "static"
+};
+
+static const char* macros[] = {
+    "#include", "#define", "#undef", "#if", "#ifdef", "#ifndef", "#elif", "#else", "#endif", "#error", "#line", "#pragma"
+};
+
 static void get_cursor(int pos, int* x, int* y) {
     int col = 0;
     int row = 0;
@@ -31,30 +39,6 @@ static void get_cursor(int pos, int* x, int* y) {
     *y = row + 3;
 }
 
-static void editor_draw(const char* filename) {
-    vga_clear();
-
-    vga_set_color(VGA_BLACK, VGA_WHITE);
-    vga_printf("%s - %s", EDITOR_NAME, filename);
-
-    vga_set_cursor(1, 0);
-
-    vga_set_color(VGA_BLACK, VGA_LIGHT_GREY);
-    vga_print("Ctrl+S Save | Ctrl+Z Exit");
-
-    vga_set_cursor(3, 0);
-
-    vga_set_color(VGA_WHITE, VGA_BLACK);
-
-    for (int i = 0; i < len; i++) {
-        vga_putchar(buf[i]);
-    }
-
-    int row, col;
-    get_cursor(cursor_x, &col, &row);
-    vga_set_cursor(row, col);
-}
-
 static void insert_char(char c) {
     if (len >= EDITOR_BUF - 1)
         return;
@@ -71,6 +55,24 @@ static void insert_char(char c) {
     buf[len] = 0;
 }
 
+static int is_keyword(const char* word) {
+    for (int i = 0; i < 9; i++) {
+        if (kstrcmp(word, keywords[i]) == 0)
+            return 1;
+    }
+
+    return 0;
+}
+
+static int is_macro(const char* word) {
+    for (int i = 0; i < 12; i++) {
+        if (kstrcmp(word, macros[i]) == 0)
+            return 1;
+    }
+
+    return 0;
+}
+
 static void delete_char() {
     if (cursor_x <= 0)
         return;
@@ -81,6 +83,157 @@ static void delete_char() {
 
     cursor_x--;
     len--;
+}
+
+static void draw_with_syntax() {
+    char word[64];
+    int w = 0;
+    int in_string = 0;
+    int in_macro = 0;
+
+    for (int i = 0; i < len; i++) {
+        char c = buf[i];
+
+        if (!in_string && c == '/' && i + 1 < len && buf[i + 1] == '/') {
+            if (w > 0) {
+                word[w] = 0;
+                int color = is_keyword(word) ? VGA_LIGHT_BLUE : VGA_WHITE;
+                vga_set_color(color, VGA_BLACK);
+
+                for (int j = 0; j < w; j++) vga_putchar(word[j]);
+                w = 0;
+            }
+
+            vga_set_color(VGA_DARK_GREY, VGA_BLACK);
+            while (i < len && buf[i] != '\n') {
+                vga_putchar(buf[i]);
+                i++;
+            }
+
+            if (i < len && buf[i] == '\n') vga_putchar('\n');
+            continue;
+        }
+
+        if (c == '"' && !in_macro) {
+            if (w > 0) {
+                word[w] = 0;
+                int color = is_keyword(word) ? VGA_LIGHT_BLUE : VGA_WHITE;
+                vga_set_color(color, VGA_BLACK);
+
+                for (int j = 0; j < w; j++) vga_putchar(word[j]);
+                w = 0;
+            }
+
+            in_string = !in_string;
+            vga_set_color(VGA_LIGHT_GREEN, VGA_BLACK);
+            vga_putchar(c);
+            continue;
+        }
+
+        if (in_string) {
+            vga_set_color(VGA_LIGHT_GREEN, VGA_BLACK);
+            vga_putchar(c);
+            continue;
+        }
+
+        if (c == '#') {
+            if (w > 0) {
+                word[w] = 0;
+                int color = is_keyword(word) ? VGA_LIGHT_BLUE : VGA_WHITE;
+
+                vga_set_color(color, VGA_BLACK);
+
+                for (int j = 0; j < w; j++) vga_putchar(word[j]);
+                w = 0;
+            }
+
+            in_macro = 1;
+        }
+
+        if (in_macro) {
+            vga_set_color(VGA_LIGHT_RED, VGA_BLACK);
+            vga_putchar(c);
+
+            if (c == ' ' || c == '\n') in_macro = 0;
+            continue;
+        }
+
+        if (c == ':' && i + 1 < len && buf[i + 1] == ':') {
+            if (w > 0) {
+                word[w] = 0;
+                vga_set_color(VGA_LIGHT_CYAN, VGA_BLACK);
+
+                for (int j = 0; j < w; j++) vga_putchar(word[j]);
+                w = 0;
+            }
+
+            vga_set_color(VGA_LIGHT_CYAN, VGA_BLACK);
+            vga_putchar(':');
+            vga_putchar(':');
+
+            i++;
+            continue;
+        }
+
+        if ((c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z') || c == '_') {
+            if (w < 63) word[w++] = c;
+            continue;
+        }
+
+        if (w > 0) {
+            word[w] = 0;
+            int is_kw = is_keyword(word);
+            int is_func = (c == '(');
+            int color = VGA_WHITE;
+
+            if (is_kw) color = VGA_LIGHT_BLUE;
+            else if (is_func) color = VGA_LIGHT_MAGENTA;
+
+            vga_set_color(color, VGA_BLACK);
+
+            for (int j = 0; j < w; j++) vga_putchar(word[j]);
+            w = 0;
+        }
+
+        if (c >= '0' && c <= '9') {
+            vga_set_color(VGA_CYAN, VGA_BLACK);
+            vga_putchar(c);
+            vga_set_color(VGA_WHITE, VGA_BLACK);
+
+            continue;
+        }
+
+        vga_set_color(VGA_WHITE, VGA_BLACK);
+        vga_putchar(c);
+    }
+
+    if (w > 0) {
+        word[w] = 0;
+        int color = is_keyword(word) ? VGA_LIGHT_BLUE : VGA_WHITE;
+        vga_set_color(color, VGA_BLACK);
+
+        for (int j = 0; j < w; j++) vga_putchar(word[j]);
+    }
+}
+
+static void editor_draw(const char* filename) {
+    vga_clear();
+
+    vga_set_color(VGA_BLACK, VGA_WHITE);
+    vga_printf("%s - %s", EDITOR_NAME, filename);
+
+    vga_set_cursor(1, 0);
+
+    vga_set_color(VGA_BLACK, VGA_LIGHT_GREY);
+    vga_print("Ctrl+S Save | Ctrl+Z Exit");
+    vga_set_cursor(3, 0);
+    vga_set_color(VGA_WHITE, VGA_BLACK);
+
+    draw_with_syntax();
+
+    int row, col;
+    get_cursor(cursor_x, &col, &row);
+    vga_set_cursor(row, col);
 }
 
 void editor_open(const char* filename) {
