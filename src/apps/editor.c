@@ -11,7 +11,6 @@ static char buf[EDITOR_BUF];
 
 static int len = 0;
 static int cursor_x = 0;
-static int cursor_y = 0;
 
 static void get_cursor(int pos, int* x, int* y) {
     int col = 0;
@@ -88,7 +87,7 @@ void editor_open(const char* filename) {
     kmemset(buf, 0, sizeof(buf));
 
     fs_read(filename, 0, (uint8_t*)buf);
-
+    buf[EDITOR_BUF - 1] = 0;
     len = kstrlen(buf);
     cursor_x = len;
 
@@ -106,7 +105,15 @@ void editor_open(const char* filename) {
         }
 
         if (c == 26) {
+            int lines = 1;
+
+            for (int i = 0; i < len; i++) {
+                if (buf[i] == '\n') lines++;
+            }
+
+            vga_set_cursor(lines + 3, 0);
             vga_println("");
+        
             break;
         }
 

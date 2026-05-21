@@ -72,14 +72,15 @@ int fs_create(const char* name, uint32_t parent, uint8_t is_dir) {
 
 int fs_write(const char* name, uint32_t parent, uint8_t* data, uint32_t size) {
     int id = fs_find(name, parent);
-
     if (id < 0) return 0;
 
     if (size > 511) size = 511;
 
     uint8_t buf[512];
     kmemset(buf, 0, 512);
-    kstrncpy((char*)buf, (char*)data, size);
+
+    kmemcpy(buf, data, size);
+    buf[size] = 0;
 
     int lba = 3 + id;
 
