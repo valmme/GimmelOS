@@ -52,6 +52,7 @@ static int is_c_file(const char* filename) {
 static void insert_char(char c) {
     if (len >= EDITOR_BUF - 1) return;
     for (int i = len; i > cursor_x; i--) buf[i] = buf[i - 1];
+
     buf[cursor_x] = c;
     len++;
     cursor_x++;
@@ -61,6 +62,7 @@ static void insert_char(char c) {
 static void delete_char(void) {
     if (cursor_x <= 0) return;
     for (int i = cursor_x - 1; i < len; i++) buf[i] = buf[i + 1];
+
     cursor_x--;
     len--;
 }
@@ -68,6 +70,7 @@ static void delete_char(void) {
 static int find_line_start(int target_line) {
     if (target_line == 0) return 0;
     int pos = 0, line = 0;
+
     while (pos < len) {
         if (buf[pos] == '\n') {
             line++;
@@ -75,6 +78,7 @@ static int find_line_start(int target_line) {
         }
         pos++;
     }
+
     return pos;
 }
 
@@ -84,6 +88,7 @@ static void get_line_col(int* line_out, int* col_out) {
         if (buf[i] == '\n') { line++; col = 0; }
         else col++;
     }
+
     *line_out = line;
     *col_out = col;
 }
@@ -124,6 +129,7 @@ static void get_visual_pos(int* vrow_out, int* vcol_out) {
 static int is_keyword(const char* word) {
     for (size_t i = 0; i < sizeof(keywords) / sizeof(keywords[0]); i++)
         if (kstrcmp(word, keywords[i]) == 0) return 1;
+
     return 0;
 }
 
@@ -167,6 +173,7 @@ static void draw_with_syntax(void) {
     int in_string = 0;
     int in_macro = 0;
     render_line = 0;
+
     emit_col = 0;
     prev_word[0] = '\0';
 
@@ -177,10 +184,13 @@ static void draw_with_syntax(void) {
             if (w > 0) {
                 word[w] = 0;
                 emit_color(is_keyword(word) ? KEYWORDS_C : VGA_WHITE, VGA_BLACK);
+
                 for (int j = 0; j < w; j++) emit(word[j]);
                 w = 0;
             }
+
             emit_color(COMMENTS_C, VGA_BLACK);
+
             while (i < len && buf[i] != '\n') { emit(buf[i]); i++; }
             if (i < len && buf[i] == '\n') emit('\n');
             continue;
@@ -190,10 +200,13 @@ static void draw_with_syntax(void) {
             if (w > 0) {
                 word[w] = 0;
                 emit_color(is_keyword(word) ? KEYWORDS_C : VGA_WHITE, VGA_BLACK);
+
                 for (int j = 0; j < w; j++) emit(word[j]);
                 w = 0;
             }
+
             in_string = !in_string;
+
             emit_color(STRINGS_C, VGA_BLACK);
             emit(c);
             continue;
@@ -212,12 +225,14 @@ static void draw_with_syntax(void) {
                 for (int j = 0; j < w; j++) emit(word[j]);
                 w = 0;
             }
+
             in_macro = 1;
         }
 
         if (in_macro) {
             emit_color(MACROS_C, VGA_BLACK);
             emit(c);
+
             if (c == ' ' || c == '\n') in_macro = 0;
             continue;
         }
@@ -226,11 +241,14 @@ static void draw_with_syntax(void) {
             if (w > 0) {
                 word[w] = 0;
                 emit_color(CLASSES_C, VGA_BLACK);
+
                 for (int j = 0; j < w; j++) emit(word[j]);
                 w = 0;
             }
+
             emit_color(CLASSES_C, VGA_BLACK);
             emit(':'); emit(':');
+            
             i++;
             continue;
         }
@@ -248,15 +266,22 @@ static void draw_with_syntax(void) {
                 color = KEYWORDS_C;
                 if (is_type_starter(word)) kstrncpy(prev_word, word, 64);
                 else prev_word[0] = '\0';
-            } else if (prev_word[0] != '\0') {
+            } 
+            
+            else if (prev_word[0] != '\0') {
                 color = TYPES_C;
                 prev_word[0] = '\0';
-            } else if (c == '(') {
+            } 
+            
+            else if (c == '(') {
                 color = FUNCTIONS_C;
-            } else if (c == ' ') {
+            } 
+            
+            else if (c == ' ') {
                 int peek = i + 1;
                 while (peek < len && buf[peek] == ' ') peek++;
                 char nc = (peek < len) ? buf[peek] : 0;
+
                 if ((nc >= 'a' && nc <= 'z') || (nc >= 'A' && nc <= 'Z') || nc == '_')
                     color = TYPES_C;
             }
@@ -315,10 +340,12 @@ static void editor_draw(const char* filename) {
 void editor_open(const char* filename) {
     kmemset(buf, 0, sizeof(buf));
     fs_read(filename, 0, (uint8_t*)buf);
+
     buf[EDITOR_BUF - 1] = 0;
     len = kstrlen(buf);
     cursor_x = len;
     scroll_top = 0;
+
     update_scroll();
 
     while (1) {
@@ -336,28 +363,34 @@ void editor_open(const char* filename) {
 
         if (c == KEY_LEFT) {
             if (cursor_x > 0) cursor_x--;
+
             int line, col;
             get_line_col(&line, &col);
             preferred_col = col;
             update_scroll();
+
             continue;
         }
 
         if (c == KEY_RIGHT) {
             if (cursor_x < len) cursor_x++;
+
             int line, col;
             get_line_col(&line, &col);
             preferred_col = col;
             update_scroll();
+
             continue;
         }
 
         if (c == KEY_UP) {
             int line, col;
             get_line_col(&line, &col);
+
             if (line == 0) continue;
             int start = find_line_start(line - 1);
             int llen = line_length(start);
+
             cursor_x = start + (preferred_col < llen ? preferred_col : llen);
             update_scroll();
             continue;
@@ -366,11 +399,14 @@ void editor_open(const char* filename) {
         if (c == KEY_DOWN) {
             int line, col;
             get_line_col(&line, &col);
+
             int start = find_line_start(line + 1);
             if (start >= len) continue;
+
             int llen = line_length(start);
             cursor_x = start + (preferred_col < llen ? preferred_col : llen);
             update_scroll();
+
             continue;
         }
 
@@ -384,8 +420,10 @@ void editor_open(const char* filename) {
             delete_char();
             int line, col;
             get_line_col(&line, &col);
+
             preferred_col = col;
             update_scroll();
+
             continue;
         }
 
@@ -393,8 +431,10 @@ void editor_open(const char* filename) {
             insert_char('\n');
             int line, col;
             get_line_col(&line, &col);
+
             preferred_col = col;
             update_scroll();
+
             continue;
         }
 
@@ -402,6 +442,7 @@ void editor_open(const char* filename) {
             insert_char((char)c);
             int line, col;
             get_line_col(&line, &col);
+            
             preferred_col = col;
             update_scroll();
         }

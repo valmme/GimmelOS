@@ -10,6 +10,7 @@
 #define INPUT_MAX 256
 
 static char wbuf[512]; 
+static void read_command(char input[INPUT_MAX]);
 
 static void cpuid(uint32_t code, uint32_t* a, uint32_t* b, uint32_t* c, uint32_t* d) {
     __asm__ volatile("cpuid" : "=a"(*a), "=b"(*b), "=c"(*c), "=d"(*d) : "a"(code));
@@ -38,6 +39,7 @@ static void cmd_help(void) {
     vga_println("  halt   - halt the CPU");
     vga_println("  info   - system info");
     vga_println("  ls     - files list");
+    vga_println("  run    - run .gim file");
 
     vga_println("");
 
@@ -192,7 +194,7 @@ static void cmd_lito(const char* args) {
     editor_open(fname);
 }
 
-static void cmd_echo(const char *args) {
+static void cmd_echo(const char* args) {
     vga_set_color(VGA_LIGHT_GREY, VGA_BLACK);
     vga_println(args);
 }
@@ -237,6 +239,47 @@ static void reboot(void) {
     __asm__ volatile("hlt");
 }
 
+static void run_gim(const char* args) {
+    if (!args || !args[0]) { vga_println("run: missing path"); return; }
+
+    int id = resolve_path(args);
+    if (id < 0) { vga_error("run: file not found"); return; }
+
+    static uint8_t buf[512];
+    kmemset(buf, 0, sizeof(buf));
+
+    if (!fs_read_by_id(id, buf)) { vga_error("run: read failed"); return; }
+
+    char* line = (char*)buf;
+    char* start = line;
+
+    for (int i = 0; i < 512 && line[i]; i++) {
+
+        if (line[i] == '\r') {
+            line[i] = '\0';
+        }
+
+        if (line[i] == '\n' || line[i] == '\0') {
+            line[i] = '\0';
+
+            if (start[0] != '\0') {
+                while (*start == '\r' || *start == ' ') start++;
+
+                if (*start != '\0') {
+                    read_command(start);
+                }
+            }
+
+            start = &line[i + 1];
+        }
+    }
+
+    if (start[0] != '\0') {
+        while (*start == ' ') start++;
+        if (*start) read_command(start);
+    }
+}
+
 static void read_command(char input[INPUT_MAX]) {
     if (input[0] == '\0') return;
 
@@ -259,6 +302,7 @@ static void read_command(char input[INPUT_MAX]) {
     else if (CMD_IS("rm"))     cmd_rm(args);
     else if (CMD_IS("rmdir"))  cmd_rmdir(args);
     else if (CMD_IS("cat"))    cmd_cat(args);
+    else if (CMD_IS("run"))    run_gim(args);
     else if (CMD_IS("wr"))     cmd_wr(args, wbuf, sizeof(wbuf));
     else {
         vga_set_color(VGA_LIGHT_RED, VGA_BLACK);
