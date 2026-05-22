@@ -1,6 +1,9 @@
 #pragma once
 #include "lib/types.h"
 
+#define VGA_WIDTH 80
+#define VGA_HEIGHT 25
+
 typedef enum {
     VGA_BLACK          = 0,
     VGA_BLUE           = 1,
@@ -24,6 +27,7 @@ void vga_init(void);
 void vga_clear(void);
 void vga_set_color(vga_color_t fg, vga_color_t bg);
 void vga_set_cursor(size_t row, size_t col);
+void vga_put_at(char c, int row, int col);
 
 void vga_putchar(char c);
 void vga_print(const char* str);

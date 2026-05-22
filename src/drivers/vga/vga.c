@@ -1,8 +1,6 @@
 #include "vga.h"
 #include "kernel/cpu/io.h"
 
-#define VGA_WIDTH 80
-#define VGA_HEIGHT 25
 #define VGA_MEM ((uint16_t *)0xB8000)
 
 static size_t vga_row = 0;
@@ -12,6 +10,11 @@ static uint8_t vga_attr = 0;
 // helpers
 static uint16_t vga_entry(char c, uint8_t attr) {
     return (uint16_t)c | ((uint16_t)attr << 8);
+}
+
+void vga_put_at(char c, int row, int col) {
+    if (row < 0 || row >= VGA_HEIGHT || col < 0 || col >= VGA_WIDTH) return;
+    VGA_MEM[row * VGA_WIDTH + col] = vga_entry(c, vga_attr);
 }
 
 static void update_hw_cursor(void) {

@@ -14,7 +14,6 @@ static int alloc_block() {
         }
     }
 
-    
     return -1;
 }
 
