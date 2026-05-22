@@ -12,19 +12,26 @@ void panic(const char* msg) {
     halt();
 }
 
-void kernel_main(uint32_t multiboot_magic, uint32_t multiboot_info) {
-    (void)multiboot_info;
-
+void kernel_main(uint32_t magic, uint32_t addr) {
     vga_init();
     keyboard_init();
 
-    detect_disk();
-    fs_init();
-
-    if (multiboot_magic != 0x2BADB002) {
-        vga_warn("Not loaded by a Multiboot-compliant bootloader!");
+    if (magic != 0x2BADB002) {
+        vga_warn("Not multiboot");
     }
 
+    struct multiboot_info* mbi = (struct multiboot_info*)addr;
+
+    if (!(mbi->flags & (1 << 12))) {
+        vga_error("No framebuffer!");
+        return;
+    }
+
+    framebuffer = (uint32_t*)(uint32_t)mbi->framebuffer_addr;
+    width = mbi->framebuffer_width;
+    height = mbi->framebuffer_height;
+    pitch = mbi->framebuffer_pitch;
+
+    gfx_render_frame();
     shell_run();
-    halt();
 }

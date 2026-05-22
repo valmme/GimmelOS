@@ -7,6 +7,11 @@ static size_t vga_row = 0;
 static size_t vga_col = 0;
 static uint8_t vga_attr = 0;
 
+uint32_t* framebuffer;
+uint32_t width;
+uint32_t height;
+uint32_t pitch;
+
 // helpers
 static uint16_t vga_entry(char c, uint8_t attr) {
     return (uint16_t)c | ((uint16_t)attr << 8);
@@ -310,4 +315,66 @@ void vga_warn(const char* str) {
     vga_println(str);
 
     vga_set_color(VGA_WHITE, VGA_BLACK);
+}
+
+// graphics
+void gfx_put_pixel(uint32_t x, uint32_t y, vga_color_t color) {
+    uint32_t* fb = (uint32_t*)framebuffer;
+    fb[y * (pitch / 4) + x] = (uint32_t)color;
+}
+
+void gfx_clear(vga_color_t color) {
+    for (uint32_t y = 0; y < height; y++) {
+        for (uint32_t x = 0; x < width; x++) {
+            gfx_put_pixel(x, y, color);
+        }
+    }
+}
+
+void gfx_draw_line(vec2 a, vec2 b, vga_color_t color) {
+    int dx = (b.x > a.x) ? b.x - a.x : a.x - b.x;
+    int sx = (a.x < b.x) ? 1 : -1;
+
+    int dy = (b.y > a.y) ? b.y - a.y : a.y - b.y;
+    int sy = (a.y < b.y) ? 1 : -1;
+
+    int err = dx - dy;
+
+    while (1) {
+        gfx_put_pixel(a.x, a.y, color);
+
+        if (a.x == b.x && a.y == b.y) break;
+
+        int e2 = 2 * err;
+
+        if (e2 > -dy) {
+            err -= dy;
+            a.x += sx;
+        }
+
+        if (e2 < dx) {
+            err += dx;
+            a.y += sy;
+        }
+    }
+}
+
+void gfx_draw_rec(rec r, vga_color_t color) {
+    // top, bottom, left, right
+    for (int32_t x = r.x; x < r.x + (int32_t)r.w; x++) { gfx_put_pixel(x, r.y, color); }
+    for (int32_t x = r.x; x < r.x + (int32_t)r.w; x++) { gfx_put_pixel(x, r.y + (int32_t)r.h - 1, color); }
+    for (int32_t y = r.y; y < r.y + (int32_t)r.h; y++) { gfx_put_pixel(r.x, y, color); }
+    for (int32_t y = r.y; y < r.y + (int32_t)r.h; y++) { gfx_put_pixel(r.x + (int32_t)r.w - 1, y, color); }
+}
+
+void gfx_draw_fill_rec(rec r, vga_color_t color) {
+    for (int32_t y = r.y; y < r.y + (int32_t)r.h; y++) {
+        for (int32_t x = r.x; x < r.x + (int32_t)r.w; x++) {
+            gfx_put_pixel(x, y, color);
+        }
+    }
+}
+
+void gfx_render_frame() {
+    gfx_draw_fill_rec((rec){50, 50, 50, 50}, VGA_RED);
 }
