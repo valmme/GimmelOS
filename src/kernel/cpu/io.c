@@ -1,5 +1,5 @@
 #include "io.h"
-#include "drivers/vga/gfx.h"
+#include "gfx/gfx.h"
 
 mouse_state_t mouse = {0};
 
@@ -69,8 +69,8 @@ void mouse_init(void) {
     mouse_write(0xF4);
     mouse_read();
 
-    mouse.x = 400;
-    mouse.y = 300;
+    mouse.pos.x = 400;
+    mouse.pos.y =  300;
 }
 
 void mouse_poll(void) {
@@ -91,11 +91,11 @@ void mouse_poll(void) {
     mouse.right  = (flags & 0x02) != 0;
     mouse.middle = (flags & 0x04) != 0;
 
-    mouse.x += dx;
-    mouse.y -= dy;
+    mouse.pos.x += dx;
+    mouse.pos.y -= dy;
 
-    if (mouse.x < 0) mouse.x = 0;
-    if (mouse.y < 0) mouse.y = 0;
-    if ((uint32_t)mouse.x >= width)  mouse.x = (int32_t)width  - 1;
-    if ((uint32_t)mouse.y >= height) mouse.y = (int32_t)height - 1;
+    if (mouse.pos.x < 0) mouse.pos.x = 0;
+    if (mouse.pos.y < 0) mouse.pos.y = 0;
+    if ((uint32_t)mouse.pos.x >= width)  mouse.pos.x = (int32_t)width  - 1;
+    if ((uint32_t)mouse.pos.y >= height) mouse.pos.y = (int32_t)height - 1;
 }

@@ -1,8 +1,8 @@
 #include "cpu/io.h"
+#include "gfx/gfx.h"
 #include "drivers/serial.h"
 
 #include "drivers/vga/vga.h"
-#include "drivers/vga/gfx.h"
 #include "drivers/keyboard/keyboard.h"
 #include "filesystem/fs.h"
 
@@ -15,18 +15,18 @@ void panic(const char* msg) {
 }
 
 void kernel_main(uint32_t magic, uint32_t addr) {
-    vga_init();
+    // vga_init()
     serial_init();
     keyboard_init();
 
     if (magic != 0x2BADB002) {
-        vga_warn("Not multiboot");
+        // vga_warn("Not multiboot");
     }
 
     struct multiboot_info* mbi = (struct multiboot_info*)addr;
 
     if (!(mbi->flags & (1 << 12))) {
-        vga_error("No framebuffer!");
+        // vga_error("No framebuffer!");
         return;
     }
 
@@ -34,6 +34,8 @@ void kernel_main(uint32_t magic, uint32_t addr) {
     width = mbi->framebuffer_width;
     height = mbi->framebuffer_height;
     pitch = mbi->framebuffer_pitch;
+
+    gfx_init((vec2){width, height}, pitch, framebuffer);
 
     // info
     serial_print("addr:   "); serial_print_hex((uint32_t)mbi->framebuffer_addr_low); serial_putchar('\n');

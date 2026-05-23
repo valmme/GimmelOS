@@ -17,7 +17,7 @@ const uint32_t vga_palette[16] = {
     0xFF5555, 0xFF55FF, 0xFFFF55, 0xFFFFFF,
 };
 
-static uint32_t backbuffer[800 * 600];
+static uint32_t* backbuffer = 0;
 
 gfx_color_t gfx_from_vga(vga_color_t c) {
     uint32_t rgb = vga_palette[c];
@@ -29,8 +29,19 @@ gfx_color_t gfx_from_vga(vga_color_t c) {
     };
 }
 
+void gfx_init(vec2 res, uint32_t p, uint32_t* fb) {
+    width = res.x;
+    height = res.y;
+
+    pitch = p;
+    framebuffer = fb;
+
+    static uint32_t _backbuffer[1920 * 1080];
+    backbuffer = _backbuffer;
+}
+
 void gfx_begin_frame(gfx_color_t color) {
-    for (int i = 0; i < 800 * 600; i++) {
+    for (int i = 0; i < width * height; i++) {
         backbuffer[i] = ((uint32_t)color.r << 16) | ((uint32_t)color.g << 8) | (uint32_t)color.b;
     }
 }
@@ -170,26 +181,49 @@ static void cursor_restore_bg(int32_t x, int32_t y) {
     }
 }
 
-void gfx_draw_cursor(int32_t x, int32_t y) {
+void gfx_draw_cursor(mouse_state_t mouse) {
     for (int row = 0; row < CURSOR_H; row++) {
         for (int col = 0; col < CURSOR_W; col++) {
             if (cursor_bitmap[row] & (1u << (31 - col)))
-                gfx_put_pixel(x + col, y + row, GFX_WHITE);
+                gfx_put_pixel(mouse.pos.x + col, mouse.pos.y + row, GFX_WHITE);
         }
     }
 }
 
-void gfx_render_frame(void) {
+void gfx_draw_texture(const uint32_t* tex, vec2 pos, vec2 size) {
+    for (uint32_t row = 0; row < size.y; row++) {
+        for (uint32_t col = 0; col < size.x; col++) {
+            uint32_t packed = tex[row * size.x + col];
+
+            uint8_t a = (packed >> 24) & 0xFF;
+            if (a == 0) continue;
+
+            gfx_color_t color = {
+                .r = (packed >> 16) & 0xFF,
+                .g = (packed >> 8)  & 0xFF,
+                .b =  packed        & 0xFF,
+                .a = a
+            };
+
+            gfx_put_pixel(pos.x + col, pos.y + row, color);
+        }
+    }
+}
+
+void gfx_render_frame() {
     mouse_init();
+    wm_init();
+
+    wm_create("Window 1", (rec){50,  50,  300, 200}, GFX_DARK_GRAY);
+    wm_create("Window 2", (rec){200, 150, 250, 180}, GFX_DARK_GRAY);
 
     while (1) {
         mouse_poll();
+        wm_handle_mouse(mouse.pos, mouse.left);
 
         gfx_begin_frame(GFX_DARK_BLUE);
-
-        gfx_print_ex("hello world", (vec2){10, 10}, GFX_WHITE, GFX_DARK_BLUE, 2);
-        gfx_draw_cursor(mouse.x, mouse.y);
-
+        wm_draw_all();
+        gfx_draw_cursor(mouse);
         gfx_end_frame();
     }
 }

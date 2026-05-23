@@ -1,6 +1,8 @@
 #pragma once
-#include "vga.h"
+#include "kernel/cpu/io.h"
+#include "drivers/vga/vga.h"
 #include "lib/types.h"
+#include "ui/wm.h"
 
 #define FB_CHAR_W 8
 #define FB_CHAR_H 8
@@ -75,13 +77,15 @@ extern const uint8_t font[128][8];
 #define GFX_MAGENTA     (gfx_color_t){ 255,   0, 255, 255 }
 
 
+void gfx_init(vec2 res, uint32_t p, uint32_t* fb);
+
 // basic
 gfx_color_t gfx_from_vga(vga_color_t c);
 void gfx_begin_frame(gfx_color_t color);
 void gfx_end_frame(void);
 void gfx_render_frame(void);
 void gfx_put_pixel(uint32_t x, uint32_t y, gfx_color_t color);
-void gfx_draw_cursor(int32_t x, int32_t y);
+void gfx_draw_cursor(mouse_state_t mouse);
 
 // text
 void gfx_putchar_ex(char c, vec2 pos, gfx_color_t fg, gfx_color_t bg, int scale);
@@ -93,3 +97,5 @@ void gfx_print(const char* str, vec2 pos, gfx_color_t fg, gfx_color_t bg);
 void gfx_draw_line(vec2 a, vec2 b, gfx_color_t color);
 void gfx_draw_rec(rec r, gfx_color_t color);
 void gfx_draw_fill_rec(rec r, gfx_color_t color);
+
+void gfx_draw_texture(const uint32_t* tex, vec2 pos, vec2 size);
