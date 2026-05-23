@@ -1,7 +1,10 @@
 #include "wm.h"
 #include "lib/kstring.h"
+#include "lib/math.h"
 
 wm_t wm;
+
+static wm_canvas_t current_canvas;
 
 void wm_init(void) {
     wm.count     = 0;
@@ -349,4 +352,150 @@ void wm_draw(int id) {
 void wm_draw_all(void) {
     for (int i = 0; i < wm.count; i++)
         wm_draw(i);
+}
+
+wm_canvas_t wm_get_canvas(int wid) {
+    window_t* w = &wm.windows[wid];
+    return (wm_canvas_t){
+        .x = w->bounds.x + 1,
+        .y = w->bounds.y + WM_TITLEBAR_H,
+        .w = w->bounds.w - 2,
+        .h = w->bounds.h - WM_TITLEBAR_H - 1
+    };
+}
+
+void wm_begin_draw(int wid) {
+    current_canvas = wm_get_canvas(wid);
+    gfx_set_clip((rec){
+        current_canvas.x,
+        current_canvas.y,
+        current_canvas.w,
+        current_canvas.h
+    });
+}
+
+void wm_end_draw(void) {
+    gfx_reset_clip();
+}
+
+void wm_draw_pixel(vec2 pos, gfx_color_t color) {
+    gfx_put_pixel_clipped(addv(get_pos(current_canvas), pos), color);
+}
+
+void wm_draw_fill_rec(rec r, gfx_color_t color) {
+    for (int32_t row = r.y; row < r.y + (int32_t)r.h; row++)
+        for (int32_t col = r.x; col < r.x + (int32_t)r.w; col++)
+            wm_draw_pixel((vec2){col, row}, color);
+}
+
+void wm_draw_line(vec2 a, vec2 b, gfx_color_t color) {
+    int dx = (b.x > a.x) ? b.x - a.x : a.x - b.x;
+    int sx = (a.x < b.x) ? 1 : -1;
+    int dy = (b.y > a.y) ? b.y - a.y : a.y - b.y;
+    int sy = (a.y < b.y) ? 1 : -1;
+    int err = dx - dy;
+
+    while (1) {
+        wm_draw_pixel(a, color);
+
+        if (a.x == b.x && a.y == b.y) break;
+        int e2 = 2 * err;
+
+        if (e2 > -dy) { err -= dy; a.x += sx; }
+        if (e2 <  dx) { err += dx; a.y += sy; }
+    }
+}
+
+void wm_draw_text(const char* str, vec2 pos, gfx_color_t fg, gfx_color_t bg) {
+    vec2 abs_pos = {current_canvas.x + pos.x, current_canvas.y + pos.y};
+
+    while (*str) {
+        if (*str == '\n') {
+            abs_pos.y += FB_CHAR_H;
+            abs_pos.x  = current_canvas.x + pos.x;
+        } 
+        
+        else {
+            const uint8_t* glyph = font[(uint8_t)*str];
+            for (int row = 0; row < 8; row++) {
+                uint8_t bits = reverse_bits(glyph[row]);
+                for (int col = 0; col < 8; col++) {
+                    gfx_color_t c = (bits & (0x80 >> col)) ? fg : bg;
+                    gfx_put_pixel_clipped((vec2){abs_pos.x + col, abs_pos.y + row}, c);
+                }
+            }
+
+            abs_pos.x += FB_CHAR_W;
+        }
+
+        str++;
+    }
+}
+
+void wm_draw_circle(vec2 pos, int32_t radius, gfx_color_t color) {
+    int32_t x = 0, y = radius, d = 1 - radius;
+
+    while (x <= y) {
+        wm_draw_pixel((vec2){pos.x+x, pos.y+y}, color);
+        wm_draw_pixel((vec2){pos.x-x, pos.y+y}, color);
+        wm_draw_pixel((vec2){pos.x+x, pos.y-y}, color);
+        wm_draw_pixel((vec2){pos.x-x, pos.y-y}, color);
+
+        wm_draw_pixel((vec2){pos.x+y, pos.y+x}, color);
+        wm_draw_pixel((vec2){pos.x-y, pos.y+x}, color);
+        wm_draw_pixel((vec2){pos.x+y, pos.y-x}, color);
+        wm_draw_pixel((vec2){pos.x-y, pos.y-x}, color);
+
+        if (d < 0) d += 2 * x + 3;
+        else {
+            d += 2 * (x - y) + 5;
+            y--;
+        }
+
+        x++;
+    }
+}
+
+void wm_draw_fill_circle(vec2 pos, int32_t radius, gfx_color_t color) {
+    int32_t x = 0, y = radius, d = 1 - radius;
+
+    while (x <= y) {
+        for (int32_t i = pos.x - x; i <= pos.x + x; i++) {
+            wm_draw_pixel((vec2){i, pos.y+y}, color);
+            wm_draw_pixel((vec2){i, pos.y-y}, color);
+        }
+
+        for (int32_t i = pos.x - y; i <= pos.x + y; i++) {
+            wm_draw_pixel((vec2){i, pos.y+x}, color);
+            wm_draw_pixel((vec2){i, pos.y-x}, color);
+        }
+
+        if (d < 0) d += 2 * x + 3;
+        else {
+            d += 2 * (x - y) + 5;
+            y--;
+        }
+
+        x++;
+    }
+}
+
+void wm_draw_texture(const uint32_t* tex, vec2 pos, vec2 size) {
+    for (uint32_t row = 0; row < size.y; row++) {
+        for (uint32_t col = 0; col < size.x; col++) {
+            uint32_t packed = tex[row * size.x + col];
+
+            uint8_t a = (packed >> 24) & 0xFF;
+            if (a == 0) continue;
+
+            gfx_color_t color = {
+                .r = (packed >> 16) & 0xFF,
+                .g = (packed >> 8)  & 0xFF,
+                .b =  packed        & 0xFF,
+                .a = a
+            };
+
+            wm_draw_pixel((vec2){pos.x + col, pos.y + row}, color);
+        }
+    }
 }

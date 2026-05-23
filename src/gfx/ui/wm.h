@@ -33,6 +33,8 @@ typedef struct {
     void (*on_click)(void);
 } widget_t;
 
+#define wm_canvas_t rec
+
 typedef struct {
     rec bounds;
     char title[64];
@@ -60,6 +62,7 @@ typedef struct {
 
 extern wm_t wm;
 
+// windows
 void wm_init(void);
 int wm_create(const char* title, rec bounds, gfx_color_t bg);
 void wm_destroy(int id);
@@ -76,7 +79,22 @@ int wm_hit_test(vec2 pos);
 int wm_hit_titlebar(int id, vec2 pos);
 int wm_hit_body(int id, vec2 pos);
 
+// widgets
 static void wm_draw_widget(window_t* w, widget_t* wg);
 int wm_add_button(int wid, const char* text, rec bounds, void (*on_click)(void));
 int wm_add_label(int wid, const char* text, rec bounds, gfx_color_t fg);
 int wm_add_input(int wid, rec bounds);
+
+// canvas
+wm_canvas_t wm_get_canvas(int wid);
+void wm_begin_draw(int wid);
+void wm_end_draw(void);
+
+// draw in canvas
+void wm_draw_pixel(vec2 pos, gfx_color_t color);
+void wm_draw_fill_rec(rec r, gfx_color_t color);
+void wm_draw_line(vec2 a, vec2 b, gfx_color_t color);
+void wm_draw_text(const char* str, vec2 pos, gfx_color_t fg, gfx_color_t bg);
+void wm_draw_circle(vec2 pos, int32_t radius, gfx_color_t color);
+void wm_draw_fill_circle(vec2 pos, int32_t radius, gfx_color_t color);
+void wm_draw_texture(const uint32_t* tex, vec2 pos, vec2 size);

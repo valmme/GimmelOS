@@ -6,6 +6,8 @@
 #include "drivers/keyboard/keyboard.h"
 #include "filesystem/fs.h"
 
+#include "apps/game.h"
+
 void shell_run(void);
 
 void panic(const char* msg) {
@@ -48,31 +50,30 @@ void kernel_main(uint32_t magic, uint32_t addr) {
     gfx_render_frame();
 }
 
-void on_click(void) {
-    // handle button click
-}
 
 void gfx_render_frame() {
     mouse_init();
     wm_init();
 
-    int win = wm_create("My Window", (rec){100, 100, 300, 200}, GFX_DARK_GRAY);
-    wm_add_label (win, "Enter name:", (rec){10, 10,  150, 16},      GFX_WHITE);
-    wm_add_input (win,               (rec){10, 30,  200, 24});
-    wm_add_button(win, "OK",         (rec){10, 64,  80,  24}, on_click);
-    wm_add_button(win, "Cancel",     (rec){100, 64, 80,  24}, 0);
+    int game_win = wm_create(
+        "hueta",
+        (rec){50,50,320,200},
+        GFX_BLACK
+    );
 
     while (1) {
-        mouse_poll();
-        char key = keyboard_getchar_nonblocking();
+        keyboard_update_game();
 
+        mouse_poll();
         wm_handle_mouse(mouse.pos, mouse.left);
-        if (wm.focused >= 0 && key)
-            wm_handle_widgets_key(wm.focused, key);
 
         gfx_begin_frame(GFX_DARK_BLUE);
+
         wm_draw_all();
+        game_update(game_win);
+
         gfx_draw_cursor(mouse);
+
         gfx_end_frame();
     }
 }

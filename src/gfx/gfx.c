@@ -10,6 +10,8 @@ uint32_t pitch;
 static uint32_t fb_cursor_x = 0;
 static uint32_t fb_cursor_y = 0;
 
+static rec gfx_clip;
+
 const uint32_t vga_palette[16] = {
     0x000000, 0x0000AA, 0x00AA00, 0x00AAAA,
     0xAA0000, 0xAA00AA, 0xAA5500, 0xAAAAAA,
@@ -58,7 +60,7 @@ void gfx_end_frame(void) {
     }
 }
 
-static uint8_t reverse_bits(uint8_t b) {
+uint8_t reverse_bits(uint8_t b) {
     b = (b & 0xF0) >> 4 | (b & 0x0F) << 4;
     b = (b & 0xCC) >> 2 | (b & 0x33) << 2;
     b = (b & 0xAA) >> 1 | (b & 0x55) << 1;
@@ -208,6 +210,20 @@ void gfx_draw_texture(const uint32_t* tex, vec2 pos, vec2 size) {
             gfx_put_pixel(pos.x + col, pos.y + row, color);
         }
     }
+}
+
+void gfx_set_clip(rec r) {
+    gfx_clip = r;
+}
+
+void gfx_reset_clip(void) {
+    gfx_clip = (rec){0, 0, width, height};
+}
+
+void gfx_put_pixel_clipped(vec2 pos, gfx_color_t color) {
+    if (pos.x < gfx_clip.x || pos.x >= gfx_clip.x + (int32_t)gfx_clip.w) return;
+    if (pos.y < gfx_clip.y || pos.y >= gfx_clip.y + (int32_t)gfx_clip.h) return;
+    gfx_put_pixel(pos.x, pos.y, color);
 }
 
 const uint8_t font[128][8] = {

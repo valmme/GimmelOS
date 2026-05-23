@@ -1,11 +1,46 @@
 #include "types.h"
+#pragma once
+
+#define PI 3.14159265358979323846f
+#define TWO_PI (2.0f * PI)
 
 // basic math
-float fabsf(float x) {
+static inline float wrap_angle(float x) {
+    while (x > PI) x -= TWO_PI;
+    while (x < -PI) x += TWO_PI;
+    return x;
+}
+
+static inline float sinf(float x) {
+    x = wrap_angle(x);
+    float x2 = x*x;
+
+    return (
+        x - (x2 * x) / 6.0f
+        + (x2 * x2 * x) / 120.0f
+        - (x2 * x2 * x2 * x) / 5040.0f
+        + (x2 * x2 * x2 * x2 * x) / 362880.0f
+    );
+}
+
+static inline float cosf(float x) {
+    x = wrap_angle(x);
+    float x2 = x * x;
+
+    return (
+        1.0f
+        - x2 / 2.0f
+        + (x2 * x2) / 24.0f
+        - (x2 * x2 * x2) / 720.0f
+        + (x2 * x2 * x2 * x2) / 40320.0f
+    );
+}
+
+static inline float fabsf(float x) {
     return x < 0 ? -x : x;
 }
 
-float sqrtf(float x) {
+static inline float sqrtf(float x) {
     if (x <= 0) return 0;
     float r = x;
 
@@ -15,9 +50,7 @@ float sqrtf(float x) {
     return r;
 }
 
-float acosf(float x) {
-    const float PI = 3.14159265f;
-
+static inline float acosf(float x) {
     if (x > 1.0f) x = 1.0f;
     if (x < -1.0f) x = -1.0f;
 
@@ -34,12 +67,14 @@ float acosf(float x) {
 }
 
 // vector math
-inline vec2 vec2zero() { return (vec2){0, 0}; }
+static inline vec2 vec2zero() { return (vec2){0, 0}; }
 
-inline vec2 add(vec2 a, int32_t v) { return (vec2){a.x+v,   a.y+v}; }
-inline vec2 addv(vec2 a,  vec2 b) { return (vec2){a.x+b.x, a.y+b.y}; }
+static inline vec2 add(vec2 a, int32_t v) { return (vec2){a.x+v,   a.y+v}; }
+static inline vec2 addv(vec2 a,  vec2 b) { return (vec2){a.x+b.x, a.y+b.y}; }
+static inline vec2 get_pos(rec a) { return (vec2){a.x, a.y}; }
+static inline vec2 get_size(rec a) { return (vec2){a.w, a.h}; }
 
-float angle(vec2 a, vec2 b) {
+static inline float angle(vec2 a, vec2 b) {
     float dot = (float)(a.x * b.x + a.y * b.y);
 
     float mag1 = sqrtf((float)(a.x * a.x + a.y * a.y));
@@ -56,7 +91,7 @@ float angle(vec2 a, vec2 b) {
     return acosf(cosv);
 }
 
-int check_collision_rec(vec2 p, rec r) {
+static inline int check_collision_rec(vec2 p, rec r) {
     return (
         p.x >= r.x &&
         p.y >= r.y &&
@@ -65,7 +100,7 @@ int check_collision_rec(vec2 p, rec r) {
     );
 }
 
-int distance(vec2 a, vec2 b) {
+static inline int distance(vec2 a, vec2 b) {
     float dx = b.x - a.x;
     float dy = b.y - a.y;
 

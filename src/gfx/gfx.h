@@ -77,6 +77,8 @@ extern const uint8_t font[128][8];
 #define GFX_MAGENTA     (gfx_color_t){ 255,   0, 255, 255 }
 
 
+
+uint8_t reverse_bits(uint8_t b);
 void gfx_init(vec2 res, uint32_t p, uint32_t* fb);
 
 // basic
@@ -98,3 +100,8 @@ void gfx_draw_rec(rec r, gfx_color_t color);
 void gfx_draw_fill_rec(rec r, gfx_color_t color);
 
 void gfx_draw_texture(const uint32_t* tex, vec2 pos, vec2 size);
+
+// window renderer
+void gfx_set_clip(rec r);
+void gfx_reset_clip(void);
+void gfx_put_pixel_clipped(vec2 pos, gfx_color_t color);
