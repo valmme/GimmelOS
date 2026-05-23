@@ -4,13 +4,16 @@
 wm_t wm;
 
 void wm_init(void) {
-    wm.count = 0;
-    wm.focused = -1;
+    wm.count     = 0;
+    wm.focused   = -1;
+    wm.prev_left = 0;
 
     for (int i = 0; i < WM_MAX_WINDOWS; i++) {
-        wm.windows[i].visible = 0;
-        wm.windows[i].focused = 0;
-        wm.windows[i].dragging = 0;
+        wm.windows[i].visible       = 0;
+        wm.windows[i].focused       = 0;
+        wm.windows[i].dragging      = 0;
+        wm.windows[i].resizing      = 0;
+        wm.windows[i].widgets_count = 0;
     }
 }
 
@@ -21,12 +24,13 @@ int wm_create(const char* title, rec bounds, gfx_color_t bg) {
     window_t* w = &wm.windows[id];
 
     kstrncpy(w->title, title, 64);
-
-    w->bounds = bounds;
-    w->bg = bg;
-    w->visible = 1;
-    w->focused = 0;
-    w->dragging = 0;
+    w->bounds        = bounds;
+    w->bg            = bg;
+    w->visible       = 1;
+    w->focused       = 0;
+    w->dragging      = 0;
+    w->resizing      = 0;
+    w->widgets_count = 0;
 
     return id;
 }
@@ -34,72 +38,6 @@ int wm_create(const char* title, rec bounds, gfx_color_t bg) {
 void wm_destroy(int id) {
     if (id < 0 || id >= wm.count) return;
     wm.windows[id].visible = 0;
-}
-
-void wm_draw(int id) {
-    if (id < 0 || id >= wm.count) return;
-
-    window_t* w = &wm.windows[id];
-    if (!w->visible) return;
-
-    gfx_color_t border   = w->focused ? GFX_WHITE     : GFX_GRAY;
-    gfx_color_t title_fg = w->focused ? GFX_WHITE     : GFX_LIGHT_GRAY;
-    gfx_color_t title_bg = w->focused ? GFX_DARK_BLUE : GFX_DARK_GRAY;
-
-    gfx_draw_fill_rec(w->bounds, w->bg);
-
-    rec title_bar = { w->bounds.x, w->bounds.y, w->bounds.w, WM_TITLEBAR_H };
-    gfx_draw_fill_rec(title_bar, title_bg);
-
-    gfx_print(w->title, (vec2){ w->bounds.x+4, w->bounds.y+6 }, title_fg, title_bg);
-    gfx_draw_rec(w->bounds, border);
-
-    rec handle = {
-        w->bounds.x + (int32_t)w->bounds.w - WM_RESIZE_BORDER,
-        w->bounds.y + (int32_t)w->bounds.h - WM_RESIZE_BORDER,
-        WM_RESIZE_BORDER,
-        WM_RESIZE_BORDER
-    };
-
-    gfx_draw_fill_rec(handle, border);
-}
-
-void wm_draw_all(void) {
-    for (int i = 0; i < wm.count; i++) {
-        wm_draw(i);
-    }
-}
-
-int wm_hit_test(vec2 pos) {
-    for (int i = wm.count - 1; i >= 0; i--) {
-        window_t* w = &wm.windows[i];
-        if (!w->visible) continue;
-
-        if (pos.x >= w->bounds.x && pos.x < w->bounds.x + (int32_t)w->bounds.w && pos.y >= w->bounds.y && pos.y < w->bounds.y + (int32_t)w->bounds.h)
-            return i;
-    }
-
-    return -1;
-}
-
-int wm_hit_titlebar(int id, vec2 pos) {
-    window_t* w = &wm.windows[id];
-    return (
-        pos.x >= w->bounds.x &&
-        pos.x <  w->bounds.x + (int32_t)w->bounds.w &&
-        pos.y >= w->bounds.y &&
-        pos.y <  w->bounds.y + WM_TITLEBAR_H
-    );
-}
-
-int wm_hit_body(int id, vec2 pos) {
-    window_t* w = &wm.windows[id];
-    return (
-        pos.x >= w->bounds.x &&
-        pos.x <  w->bounds.x + (int32_t)w->bounds.w &&
-        pos.y >= w->bounds.y + WM_TITLEBAR_H &&
-        pos.y <  w->bounds.y + (int32_t)w->bounds.h
-    );
 }
 
 void wm_bring_to_front(int id) {
@@ -115,20 +53,47 @@ void wm_bring_to_front(int id) {
 
 static int wm_hit_resize(int id, vec2 pos) {
     window_t* w = &wm.windows[id];
-    int32_t rx = w->bounds.x + (int32_t)w->bounds.w - WM_RESIZE_BORDER;
-    int32_t ry = w->bounds.y + (int32_t)w->bounds.h - WM_RESIZE_BORDER;
+    int32_t rx = w->bounds.x + (int32_t)w->bounds.w - WM_RESIZE_HIT;
+    int32_t ry = w->bounds.y + (int32_t)w->bounds.h - WM_RESIZE_HIT;
 
-    return (
-        pos.x >= rx && pos.y >= ry &&
-        pos.x < w->bounds.x + (int32_t)w->bounds.w &&
-        pos.y < w->bounds.y + (int32_t)w->bounds.h
-    );
+    return pos.x >= rx && pos.y >= ry &&
+           pos.x < w->bounds.x + (int32_t)w->bounds.w &&
+           pos.y < w->bounds.y + (int32_t)w->bounds.h;
+}
+
+int wm_hit_titlebar(int id, vec2 pos) {
+    window_t* w = &wm.windows[id];
+    return pos.x >= w->bounds.x &&
+           pos.x < w->bounds.x + (int32_t)w->bounds.w &&
+           pos.y >= w->bounds.y &&
+           pos.y < w->bounds.y + WM_TITLEBAR_H;
+}
+
+int wm_hit_body(int id, vec2 pos) {
+    window_t* w = &wm.windows[id];
+    return pos.x >= w->bounds.x &&
+           pos.x < w->bounds.x + (int32_t)w->bounds.w &&
+           pos.y >= w->bounds.y + WM_TITLEBAR_H &&
+           pos.y < w->bounds.y + (int32_t)w->bounds.h;
+}
+
+int wm_hit_test(vec2 pos) {
+    for (int i = wm.count - 1; i >= 0; i--) {
+        window_t* w = &wm.windows[i];
+        if (!w->visible) continue;
+
+        if (pos.x >= w->bounds.x &&
+            pos.x < w->bounds.x + (int32_t)w->bounds.w &&
+            pos.y >= w->bounds.y &&
+            pos.y < w->bounds.y + (int32_t)w->bounds.h)
+            return i;
+    }
+
+    return -1;
 }
 
 void wm_handle_mouse(vec2 pos, uint8_t left) {
-    static uint8_t prev_left = 0;
-
-    if (left && !prev_left) {
+    if (left && !wm.prev_left) {
         int id = wm_hit_test(pos);
 
         for (int i = 0; i < wm.count; i++)
@@ -139,20 +104,24 @@ void wm_handle_mouse(vec2 pos, uint8_t left) {
             wm.focused = wm.count - 1;
 
             window_t* w = &wm.windows[wm.focused];
-            w->focused = 1;
+            w->focused  = 1;
 
             if (wm_hit_resize(wm.focused, pos)) {
-                w->resizing       = 1;
+                w->resizing = 1;
                 w->resize_start.x = pos.x;
                 w->resize_start.y = pos.y;
                 w->resize_start.w = w->bounds.w;
-                w->resize_start.h = w->bounds.h; 
+                w->resize_start.h = w->bounds.h;
             } 
             
             else if (wm_hit_titlebar(wm.focused, pos)) {
-                w->dragging   = 1;
+                w->dragging = 1;
                 w->drag_off.x = pos.x - w->bounds.x;
                 w->drag_off.y = pos.y - w->bounds.y;
+            } 
+            
+            else if (wm_hit_body(wm.focused, pos)) {
+                wm_handle_widgets_mouse(wm.focused, pos, left);
             }
         } 
         
@@ -188,7 +157,196 @@ void wm_handle_mouse(vec2 pos, uint8_t left) {
                 w->bounds.h = (uint32_t)new_h;
             }
         }
+
+        if (wm.focused >= 0)
+            wm_handle_widgets_mouse(wm.focused, pos, left);
     }
 
-    prev_left = left;
+    if (!left && wm.focused >= 0)
+        wm_handle_widgets_mouse(wm.focused, pos, left);
+
+    wm.prev_left = left;
+}
+
+void wm_handle_widgets_mouse(int wid, vec2 pos, uint8_t left) {
+    window_t* w = &wm.windows[wid];
+
+    for (int i = 0; i < w->widgets_count; i++) {
+        widget_t* wg = &w->widgets[i];
+
+        rec r = {
+            w->bounds.x + wg->bounds.x,
+            w->bounds.y + WM_TITLEBAR_H + wg->bounds.y,
+            wg->bounds.w,
+            wg->bounds.h
+        };
+
+        int hit = pos.x >= r.x && pos.x < r.x + (int32_t)r.w &&
+                  pos.y >= r.y && pos.y < r.y + (int32_t)r.h;
+
+        wg->hovered = hit;
+
+        if (hit && left && !wm.prev_left) {
+            if (wg->type == WIDGET_INPUT) {
+                for (int j = 0; j < w->widgets_count; j++)
+                    w->widgets[j].focused = 0;
+                wg->focused = 1;
+            }
+
+            if (wg->type == WIDGET_BUTTON && wg->on_click)
+                wg->on_click();
+        }
+    }
+}
+
+void wm_handle_widgets_key(int wid, char c) {
+    window_t* w = &wm.windows[wid];
+
+    for (int i = 0; i < w->widgets_count; i++) {
+        widget_t* wg = &w->widgets[i];
+        if (wg->type != WIDGET_INPUT || !wg->focused) continue;
+
+        int len = kstrlen(wg->text);
+
+        if (c == '\b') {
+            if (len > 0) wg->text[len - 1] = '\0';
+        } 
+        
+        else if (c >= 32 && c < 127 && len < 63) {
+            wg->text[len]     = c;
+            wg->text[len + 1] = '\0';
+        }
+    }
+}
+
+int wm_add_button(int wid, const char* text, rec bounds, void (*on_click)(void)) {
+    window_t* w = &wm.windows[wid];
+    if (w->widgets_count >= WM_MAX_WIDGETS) return -1;
+
+    int id = w->widgets_count++;
+    widget_t* wg = &w->widgets[id];
+
+    wg->type     = WIDGET_BUTTON;
+    wg->bounds   = bounds;
+    wg->fg       = GFX_WHITE;
+    wg->bg       = GFX_DARK_GRAY;
+    wg->hovered  = 0;
+    wg->focused  = 0;
+    wg->on_click = on_click;
+    kstrncpy(wg->text, text, 64);
+
+    return id;
+}
+
+int wm_add_label(int wid, const char* text, rec bounds, gfx_color_t fg) {
+    window_t* w = &wm.windows[wid];
+    if (w->widgets_count >= WM_MAX_WIDGETS) return -1;
+
+    int id = w->widgets_count++;
+    widget_t* wg = &w->widgets[id];
+
+    wg->type     = WIDGET_LABEL;
+    wg->bounds   = bounds;
+    wg->fg       = fg;
+    wg->bg       = w->bg;
+    wg->hovered  = 0;
+    wg->focused  = 0;
+    wg->on_click = 0;
+    kstrncpy(wg->text, text, 64);
+
+    return id;
+}
+
+int wm_add_input(int wid, rec bounds) {
+    window_t* w = &wm.windows[wid];
+    if (w->widgets_count >= WM_MAX_WIDGETS) return -1;
+
+    int id       = w->widgets_count++;
+    widget_t* wg = &w->widgets[id];
+
+    wg->type     = WIDGET_INPUT;
+    wg->bounds   = bounds;
+    wg->fg       = GFX_WHITE;
+    wg->bg       = GFX_BLACK;
+    wg->hovered  = 0;
+    wg->focused  = 0;
+    wg->on_click = 0;
+    wg->text[0]  = '\0';
+
+    return id;
+}
+
+static void wm_draw_widget(window_t* w, widget_t* wg) {
+    rec r = {
+        w->bounds.x + wg->bounds.x,
+        w->bounds.y + WM_TITLEBAR_H + wg->bounds.y,
+        wg->bounds.w,
+        wg->bounds.h
+    };
+
+    switch (wg->type) {
+        case WIDGET_LABEL:
+            gfx_print(wg->text, (vec2){r.x + 2, r.y + 2}, wg->fg, w->bg);
+            break;
+
+        case WIDGET_BUTTON: {
+            gfx_color_t bg = wg->hovered ? GFX_GRAY : wg->bg;
+            gfx_draw_fill_rec(r, bg);
+            gfx_draw_rec(r, GFX_GRAY);
+
+            int tx = r.x + ((int32_t)r.w - (int32_t)kstrlen(wg->text) * FB_CHAR_W) / 2;
+            int ty = r.y + ((int32_t)r.h - FB_CHAR_H) / 2;
+            gfx_print(wg->text, (vec2){tx, ty}, wg->fg, bg);
+            break;
+        }
+
+        case WIDGET_INPUT: {
+            gfx_color_t border = wg->focused ? GFX_WHITE : GFX_GRAY;
+            gfx_draw_fill_rec(r, wg->bg);
+            gfx_draw_rec(r, border);
+            gfx_print(wg->text, (vec2){r.x + 4, r.y + 4}, wg->fg, wg->bg);
+
+            if (wg->focused) {
+                int cx = r.x + 4 + kstrlen(wg->text) * FB_CHAR_W;
+                gfx_draw_fill_rec((rec){cx, r.y + 4, 2, FB_CHAR_H}, GFX_WHITE);
+            }
+            break;
+        }
+
+        default: break;
+    }
+}
+
+void wm_draw(int id) {
+    if (id < 0 || id >= wm.count) return;
+
+    window_t* w = &wm.windows[id];
+    if (!w->visible) return;
+
+    gfx_color_t border   = w->focused ? GFX_WHITE     : GFX_GRAY;
+    gfx_color_t title_fg = w->focused ? GFX_WHITE     : GFX_LIGHT_GRAY;
+    gfx_color_t title_bg = w->focused ? GFX_DARK_BLUE : GFX_DARK_GRAY;
+
+    gfx_draw_fill_rec(w->bounds, w->bg);
+
+    rec title_bar = { w->bounds.x, w->bounds.y, w->bounds.w, WM_TITLEBAR_H };
+    gfx_draw_fill_rec(title_bar, title_bg);
+    gfx_print(w->title, (vec2){ w->bounds.x + 4, w->bounds.y + 6 }, title_fg, title_bg);
+    gfx_draw_rec(w->bounds, border);
+
+    rec handle = {
+        w->bounds.x + (int32_t)w->bounds.w - WM_RESIZE_BORDER,
+        w->bounds.y + (int32_t)w->bounds.h - WM_RESIZE_BORDER,
+        WM_RESIZE_BORDER,
+        WM_RESIZE_BORDER
+    };
+    gfx_draw_fill_rec(handle, border);
+
+    for (int i = 0; i < w->widgets_count; i++)
+        wm_draw_widget(w, &w->widgets[i]);
+}
+
+void wm_draw_all(void) {
+    for (int i = 0; i < wm.count; i++)
+        wm_draw(i);
 }

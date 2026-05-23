@@ -74,8 +74,9 @@ void mouse_init(void) {
 }
 
 void mouse_poll(void) {
-    if (!(inb(0x64) & 0x01)) return;
-    if (!(inb(0x64) & 0x20)) return;
+    uint8_t status = inb(0x64);
+    if (!(status & 0x01)) return; // no data
+    if (!(status & 0x20)) return; // data from keyboard
 
     uint8_t flags = inb(0x60);
 

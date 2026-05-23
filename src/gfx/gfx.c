@@ -68,10 +68,10 @@ static uint8_t reverse_bits(uint8_t b) {
 void gfx_putchar_ex(char c, vec2 pos, gfx_color_t fg, gfx_color_t bg, int scale) {
     const uint8_t* glyph = font[(uint8_t)c];
     for (int row = 0; row < 8; row++) {
-        uint8_t bits = reverse_bits(glyph[row]);
+        uint8_t bits = glyph[row];
 
         for (int col = 0; col < 8; col++) {
-            gfx_color_t color = (bits & (0x80 >> col)) ? fg : bg;
+            gfx_color_t color = (bits & (0x80 >> (7 - col))) ? fg : bg;
             for (int sy = 0; sy < scale; sy++) {
                 for (int sx = 0; sx < scale; sx++) {
                     gfx_put_pixel(pos.x + col * scale + sx, pos.y + row * scale + sy, color);
@@ -207,24 +207,6 @@ void gfx_draw_texture(const uint32_t* tex, vec2 pos, vec2 size) {
 
             gfx_put_pixel(pos.x + col, pos.y + row, color);
         }
-    }
-}
-
-void gfx_render_frame() {
-    mouse_init();
-    wm_init();
-
-    wm_create("Window 1", (rec){50,  50,  300, 200}, GFX_DARK_GRAY);
-    wm_create("Window 2", (rec){200, 150, 250, 180}, GFX_DARK_GRAY);
-
-    while (1) {
-        mouse_poll();
-        wm_handle_mouse(mouse.pos, mouse.left);
-
-        gfx_begin_frame(GFX_DARK_BLUE);
-        wm_draw_all();
-        gfx_draw_cursor(mouse);
-        gfx_end_frame();
     }
 }
 

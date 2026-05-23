@@ -20,3 +20,4 @@ void keyboard_init(void);
 int keyboard_getchar(void);
 int keyboard_haskey(void);
 void keyboard_handler(void);
+char keyboard_getchar_nonblocking(void);

@@ -83,7 +83,6 @@ void gfx_init(vec2 res, uint32_t p, uint32_t* fb);
 gfx_color_t gfx_from_vga(vga_color_t c);
 void gfx_begin_frame(gfx_color_t color);
 void gfx_end_frame(void);
-void gfx_render_frame(void);
 void gfx_put_pixel(uint32_t x, uint32_t y, gfx_color_t color);
 void gfx_draw_cursor(mouse_state_t mouse);
 
