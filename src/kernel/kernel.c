@@ -1,6 +1,8 @@
 #include "cpu/io.h"
+#include "drivers/serial.h"
 
 #include "drivers/vga/vga.h"
+#include "drivers/vga/gfx.h"
 #include "drivers/keyboard/keyboard.h"
 #include "filesystem/fs.h"
 
@@ -14,6 +16,7 @@ void panic(const char* msg) {
 
 void kernel_main(uint32_t magic, uint32_t addr) {
     vga_init();
+    serial_init();
     keyboard_init();
 
     if (magic != 0x2BADB002) {
@@ -27,11 +30,18 @@ void kernel_main(uint32_t magic, uint32_t addr) {
         return;
     }
 
-    framebuffer = (uint32_t*)(uint32_t)mbi->framebuffer_addr;
+    framebuffer = (uint32_t*)mbi->framebuffer_addr_low;
     width = mbi->framebuffer_width;
     height = mbi->framebuffer_height;
     pitch = mbi->framebuffer_pitch;
 
+    // info
+    serial_print("addr:   "); serial_print_hex((uint32_t)mbi->framebuffer_addr_low); serial_putchar('\n');
+    serial_print("width:  "); serial_print_uint(mbi->framebuffer_width);             serial_putchar('\n');
+    serial_print("height: "); serial_print_uint(mbi->framebuffer_height);            serial_putchar('\n');
+    serial_print("pitch:  "); serial_print_uint(mbi->framebuffer_pitch);             serial_putchar('\n');
+    serial_print("bpp:    "); serial_print_uint(mbi->framebuffer_bpp);               serial_putchar('\n');
+    serial_print("flags:  "); serial_print_hex(mbi->flags);                          serial_putchar('\n');
+
     gfx_render_frame();
-    shell_run();
 }

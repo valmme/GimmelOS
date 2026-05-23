@@ -9,9 +9,10 @@ ISO_DIR = iso
 KERNEL  = $(ISO_DIR)/boot/gimmelos.bin
 ISO     = build/gimmelos.iso
 
-CFLAGS  = -m32 -ffreestanding -fno-stack-protector -fno-pic \
-          -nostdlib -nostdinc -Wall -Wextra -O2 -std=c11 -Isrc \
-		  -Wno-misleading-indentation -Wno-implicit-function-declaration -Wno-int-conversion
+CFLAGS = -m32 -ffreestanding -fno-stack-protector -fno-pic \
+         -nostdlib -nostdinc -Wall -Wextra -O2 -std=c11 -Isrc \
+         -Wno-misleading-indentation -Wno-implicit-function-declaration \
+         -Wno-int-conversion -Wno-address-of-packed-member
 
 ASFLAGS = -f elf32
 LDFLAGS = -m elf_i386 -T src/boot/linker.ld
