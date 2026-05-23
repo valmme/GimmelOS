@@ -1,6 +1,10 @@
 #pragma once
 #include "lib/types.h"
 
+// CURSOR
+#define CURSOR_W 8
+#define CURSOR_H 8
+
 static const uint32_t cursor_bitmap[8] = {
     0b11111000000000000000000000000000,
     0b11000000000000000000000000000000,
@@ -11,8 +15,5 @@ static const uint32_t cursor_bitmap[8] = {
     0b00000010000000000000000000000000,
     0b00000001000000000000000000000000,
 };
-
-#define CURSOR_W 8
-#define CURSOR_H 8
 
 static inline uint32_t cursor_bg[CURSOR_W * CURSOR_H];
