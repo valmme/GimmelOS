@@ -1,15 +1,19 @@
 #include "lib/types.h"
 #include "gfx/ui/wm.h"
 #include "gfx/gfx.h"
-#include "gfx/textures/wall.h"
-#include "game.h"
+
+#include "gfx/textures/game.h"
+
 #include "drivers/keyboard/keyboard.h"
+#include "kernel/cpu/io.h"
+
+#include "game.h"
 
 #define MAP_W 8
 #define MAP_H 8
 
 #define MOVE_SPEED 0.09f
-#define ROT_SPEED 0.09f
+#define MOUSE_SENS 0.003f
 
 static int map[MAP_H][MAP_W] = {
     {1,1,1,1,1,1,1,1},
@@ -36,10 +40,17 @@ typedef struct {
 
 static player_t p = {3.5f, 3.5f, 0};
 
-static int key_w = 0;
-static int key_s = 0;
-static int key_a = 0;
-static int key_d = 0;
+static int key_w;
+static int key_s;
+static int key_a;
+static int key_d;
+
+static int last_mouse_x = 0;
+
+void game_init() {
+    generate_ceil_texture();
+    generate_floor_texture();
+}
 
 void keyboard_update_game() {
     char c;
@@ -60,6 +71,7 @@ void keyboard_update_game() {
 static int is_wall(int x, int y) {
     if (x < 0 || y < 0 || x >= MAP_W || y >= MAP_H)
         return 1;
+
     return map[y][x];
 }
 
@@ -70,15 +82,16 @@ static ray_hit_t dda_ray(float px, float py, float dx, float dy) {
     float deltaDistX = (dx == 0) ? 1e30f : (dx < 0 ? -1.0f / dx : 1.0f / dx);
     float deltaDistY = (dy == 0) ? 1e30f : (dy < 0 ? -1.0f / dy : 1.0f / dy);
 
-    int stepX, stepY;
-    float sideDistX, sideDistY;
+    int stepX;
+    int stepY;
+
+    float sideDistX;
+    float sideDistY;
 
     if (dx < 0) {
         stepX = -1;
         sideDistX = (px - mapX) * deltaDistX;
-    } 
-    
-    else {
+    } else {
         stepX = 1;
         sideDistX = (mapX + 1.0f - px) * deltaDistX;
     }
@@ -86,9 +99,7 @@ static ray_hit_t dda_ray(float px, float py, float dx, float dy) {
     if (dy < 0) {
         stepY = -1;
         sideDistY = (py - mapY) * deltaDistY;
-    } 
-    
-    else {
+    } else {
         stepY = 1;
         sideDistY = (mapY + 1.0f - py) * deltaDistY;
     }
@@ -100,15 +111,14 @@ static ray_hit_t dda_ray(float px, float py, float dx, float dy) {
             sideDistX += deltaDistX;
             mapX += stepX;
             side = 0;
-        } 
-        
-        else {
+        } else {
             sideDistY += deltaDistY;
             mapY += stepY;
             side = 1;
         }
 
-        if (map[mapY][mapX]) break;
+        if (map[mapY][mapX])
+            break;
     }
 
     float dist;
@@ -117,9 +127,7 @@ static ray_hit_t dda_ray(float px, float py, float dx, float dy) {
     if (side == 0) {
         dist = sideDistX - deltaDistX;
         hitX = py + dist * dy;
-    } 
-    
-    else {
+    } else {
         dist = sideDistY - deltaDistY;
         hitX = px + dist * dx;
     }
@@ -132,29 +140,45 @@ static ray_hit_t dda_ray(float px, float py, float dx, float dy) {
 void game_update(int wid) {
     wm_begin_draw(wid);
 
+    mouse_poll();
+
+    int mdx = mouse.pos.x - last_mouse_x;
+    last_mouse_x = mouse.pos.x;
+
+    p.a += mdx * MOUSE_SENS;
+
     vec2 size = get_size(wm_get_canvas(wid));
+
     int w = size.x;
     int h = size.y;
 
-    float fov = PI / 3.5f;
+    float dirX = cosf(p.a);
+    float dirY = sinf(p.a);
 
-    float ca = cosf(p.a);
-    float sa = sinf(p.a);
-
-    if (key_a) p.a -= ROT_SPEED;
-    if (key_d) p.a += ROT_SPEED;
+    float planeX = -dirY * 0.66f;
+    float planeY =  dirX * 0.66f;
 
     float dx = 0;
     float dy = 0;
 
     if (key_w) {
-        dx += ca * MOVE_SPEED;
-        dy += sa * MOVE_SPEED;
+        dx += dirX * MOVE_SPEED;
+        dy += dirY * MOVE_SPEED;
     }
 
     if (key_s) {
-        dx -= ca * MOVE_SPEED;
-        dy -= sa * MOVE_SPEED;
+        dx -= dirX * MOVE_SPEED;
+        dy -= dirY * MOVE_SPEED;
+    }
+
+    if (key_a) {
+        dx += dirY * MOVE_SPEED;
+        dy -= dirX * MOVE_SPEED;
+    }
+
+    if (key_d) {
+        dx -= dirY * MOVE_SPEED;
+        dy += dirX * MOVE_SPEED;
     }
 
     if (!is_wall((int)(p.x + dx), (int)p.y))
@@ -163,10 +187,60 @@ void game_update(int wid) {
     if (!is_wall((int)p.x, (int)(p.y + dy)))
         p.y += dy;
 
-    float inv_w = 1.0f / w;
+    for (int y = h / 2; y < h; y += 2) {
+        float pz = h * 0.5f;
+        float rowDist = pz / (y - h / 2);
 
-    for (int x = 0; x < w; x++) {
+        float rayDirX0 = dirX - planeX;
+        float rayDirY0 = dirY - planeY;
+
+        float rayDirX1 = dirX + planeX;
+        float rayDirY1 = dirY + planeY;
+
+        float stepX = rowDist * (rayDirX1 - rayDirX0) / w;
+        float stepY = rowDist * (rayDirY1 - rayDirY0) / w;
+
+        float floorX = p.x + rowDist * rayDirX0;
+        float floorY = p.y + rowDist * rayDirY0;
+
+        for (int x = 0; x < w; x += 2) {
+            int cellX = (int)floorX;
+            int cellY = (int)floorY;
+
+            int tx = (int)(TEX_W * (floorX - cellX)) & (TEX_W - 1);
+            int ty = (int)(TEX_H * (floorY - cellY)) & (TEX_H - 1);
+
+            floorX += stepX * 2;
+            floorY += stepY * 2;
+
+            uint32_t fc = floor_tex[ty * TEX_W + tx];
+            uint32_t cc = ceil_tex[ty * TEX_W + tx];
+
+            uint8_t fr = (fc >> 16) & 0xFF;
+            uint8_t fg = (fc >> 8) & 0xFF;
+            uint8_t fb = fc & 0xFF;
+
+            uint8_t cr = (cc >> 16) & 0xFF;
+            uint8_t cg = (cc >> 8) & 0xFF;
+            uint8_t cb = cc & 0xFF;
+
+            gfx_color_t floor_col = {fr, fg, fb, 255};
+            gfx_color_t ceil_col  = {cr, cg, cb, 255};
+
+            wm_draw_pixel((vec2){x, y}, floor_col);
+            wm_draw_pixel((vec2){x + 1, y}, floor_col);
+
+            wm_draw_pixel((vec2){x, h - y - 1}, ceil_col);
+            wm_draw_pixel((vec2){x + 1, h - y - 1}, ceil_col);
+        }
+    }
+
+    float inv_w = 1.0f / w;
+    float fov = PI / 3.0f;
+
+    for (int x = 0; x < w; x += 2) {
         float t = x * inv_w;
+
         float ray_a = p.a - fov * 0.5f + t * fov;
 
         float rx = cosf(ray_a);
@@ -181,26 +255,39 @@ void game_update(int wid) {
         int start = h / 2 - line_h / 2;
         int end = start + line_h;
 
+        if (start < 0) start = 0;
+        if (end >= h) end = h - 1;
+
         int tex_x = (int)(hit.hit_x * TEX_W);
+
         if (tex_x < 0) tex_x = 0;
         if (tex_x >= TEX_W) tex_x = TEX_W - 1;
 
+        int tex_step = (TEX_H << 16) / line_h;
+        int tex_pos = 0;
+
+        float light = 1.0f / (1.0f + hit.dist * hit.dist * 0.12f);
+
+        if (hit.side)
+            light *= 0.7f;
+
+        if (light < 0.1f)
+            light = 0.1f;
+
         for (int y = start; y < end; y++) {
-            float ty = (float)(y - start) / line_h;
-            int tex_y = (int)(ty * TEX_H);
+            int tex_y = tex_pos >> 16;
+            tex_pos += tex_step;
 
             uint32_t color = wall_tex[tex_y * TEX_W + tex_x];
-
-            float light = 1.0f / (1.0f + hit.dist * hit.dist * 0.1f);
-
-            if (light > 1.0f) light = 1.0f;
-            if (light < 0.1f) light = 0.1f;
 
             uint8_t r = ((color >> 16) & 0xFF) * light;
             uint8_t g = ((color >> 8) & 0xFF) * light;
             uint8_t b = (color & 0xFF) * light;
 
-            wm_draw_pixel((vec2){x, y}, (gfx_color_t){r, g, b, 255});
+            gfx_color_t c = {r, g, b, 255};
+
+            wm_draw_pixel((vec2){x, y}, c);
+            wm_draw_pixel((vec2){x + 1, y}, c);
         }
     }
 

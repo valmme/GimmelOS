@@ -61,6 +61,8 @@ void gfx_render_frame() {
         GFX_BLACK
     );
 
+    game_init();
+
     while (1) {
         keyboard_update_game();
 
