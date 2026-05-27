@@ -3,7 +3,7 @@
 #include "gfx/ui/wm.h"
 #include "gfx/gfx.h"
 
-#include "gfx/textures/game.h"
+#include "textures.h"
 
 #include "drivers/keyboard/keyboard.h"
 #include "kernel/cpu/io.h"

@@ -4,7 +4,7 @@
 #include "lib/path.h"
 #include "filesystem/fs.h"
 
-#include "apps/editor.h"
+#include "apps/editor/editor.h"
 
 #define CMD_IS(s) (cmd_len == sizeof(s)-1 && kstrncmp(input, s, cmd_len) == 0)
 #define INPUT_MAX 256

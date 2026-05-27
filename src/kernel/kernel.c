@@ -6,7 +6,7 @@
 #include "drivers/keyboard/keyboard.h"
 #include "filesystem/fs.h"
 
-#include "apps/game.h"
+#include "apps/wolfenstein/game.h"
 
 void shell_run(void);
 
