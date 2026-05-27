@@ -55,11 +55,9 @@ void gfx_render_frame() {
     mouse_init();
     wm_init();
 
-    int game_win = wm_create(
-        "hueta",
-        (rec){50,50,320,200},
-        GFX_BLACK
-    );
+    wm_create_app("wolfenstein", (rec){50, 50, 240, 160}, GFX_BLACK, game_init, game_update);
+
+    uint8_t prev_left = 0;
 
     game_init();
 
@@ -69,12 +67,51 @@ void gfx_render_frame() {
         mouse_poll();
         wm_handle_mouse(mouse.pos, mouse.left);
 
+        if (mouse.left && !prev_left) {
+            int id = wm_hit_test(mouse.pos);
+
+            if (id >= 0) {
+                window_t* w = &wm.windows[id];
+
+                if (wm_hit_body(id, mouse.pos)) {
+                    int32_t rx = w->bounds.x + (int32_t)w->bounds.w - WM_RESIZE_HIT;
+                    int32_t ry = w->bounds.y + (int32_t)w->bounds.h - WM_RESIZE_HIT;
+
+                    int in_resize = mouse.pos.x >= rx && mouse.pos.y >= ry;
+
+                    if (!in_resize)
+                        w->mouse_capture = 1;
+                }
+            }
+        }
+        
+        prev_left = mouse.left;
+
         gfx_begin_frame(GFX_DARK_BLUE);
 
         wm_draw_all();
-        game_update(game_win);
 
-        gfx_draw_cursor(mouse);
+        for (int i = 0; i < wm.count; i++) {
+            window_t* w = &wm.windows[i];
+
+            if (!w->visible || w->minimized)
+                continue;
+
+            if (w->on_update)
+                w->on_update(i);
+        }
+
+        int captured = 0;
+
+        for (int i = 0; i < wm.count; i++) {
+            if (wm.windows[i].mouse_capture) {
+                captured = 1;
+                break;
+            }
+        }
+
+        if (!captured)
+            gfx_draw_cursor(mouse);
 
         gfx_end_frame();
     }

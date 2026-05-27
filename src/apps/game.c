@@ -1,4 +1,5 @@
 #include "lib/types.h"
+#include "lib/kstring.h"
 #include "gfx/ui/wm.h"
 #include "gfx/gfx.h"
 
@@ -14,6 +15,8 @@
 
 #define MOVE_SPEED 0.09f
 #define MOUSE_SENS 0.003f
+
+#define BRIGHTNESS 0.9f
 
 static int map[MAP_H][MAP_W] = {
     {1,1,1,1,1,1,1,1},
@@ -44,12 +47,14 @@ static int key_w;
 static int key_s;
 static int key_a;
 static int key_d;
+static int key_esc;
+
+int lines = 4;
 
 static int last_mouse_x = 0;
 
 void game_init() {
-    generate_ceil_texture();
-    generate_floor_texture();
+    // used for generating textures
 }
 
 void keyboard_update_game() {
@@ -59,12 +64,14 @@ void keyboard_update_game() {
     key_s = 0;
     key_a = 0;
     key_d = 0;
+    key_esc = 0;
 
     while ((c = keyboard_getchar_nonblocking())) {
         if (c == 'w' || c == 'W') key_w = 1;
         if (c == 's' || c == 'S') key_s = 1;
         if (c == 'a' || c == 'A') key_a = 1;
         if (c == 'd' || c == 'D') key_d = 1;
+        if (c == KEY_ESCAPE) key_esc = 1;
     }
 }
 
@@ -91,7 +98,9 @@ static ray_hit_t dda_ray(float px, float py, float dx, float dy) {
     if (dx < 0) {
         stepX = -1;
         sideDistX = (px - mapX) * deltaDistX;
-    } else {
+    }
+    
+    else {
         stepX = 1;
         sideDistX = (mapX + 1.0f - px) * deltaDistX;
     }
@@ -99,7 +108,9 @@ static ray_hit_t dda_ray(float px, float py, float dx, float dy) {
     if (dy < 0) {
         stepY = -1;
         sideDistY = (py - mapY) * deltaDistY;
-    } else {
+    }
+    
+    else {
         stepY = 1;
         sideDistY = (mapY + 1.0f - py) * deltaDistY;
     }
@@ -111,7 +122,9 @@ static ray_hit_t dda_ray(float px, float py, float dx, float dy) {
             sideDistX += deltaDistX;
             mapX += stepX;
             side = 0;
-        } else {
+        } 
+        
+        else {
             sideDistY += deltaDistY;
             mapY += stepY;
             side = 1;
@@ -127,7 +140,9 @@ static ray_hit_t dda_ray(float px, float py, float dx, float dy) {
     if (side == 0) {
         dist = sideDistX - deltaDistX;
         hitX = py + dist * dy;
-    } else {
+    } 
+    
+    else {
         dist = sideDistY - deltaDistY;
         hitX = px + dist * dx;
     }
@@ -142,10 +157,31 @@ void game_update(int wid) {
 
     mouse_poll();
 
-    int mdx = mouse.pos.x - last_mouse_x;
+    extern mouse_state_t mouse;
+    extern wm_t wm; 
+
+    window_t* win = &wm.windows[wm.focused];
+
+    if (key_esc) {
+        win->mouse_capture = 0;
+    }
+
+    if (wm.focused == wid && win->mouse_capture) {
+        int cx = win->bounds.x + (int32_t)win->bounds.w / 2;
+        int cy = win->bounds.y + WM_TITLEBAR_H + (int32_t)(win->bounds.h - WM_TITLEBAR_H) / 2;
+
+        int dx = mouse.pos.x - cx;
+        p.a += dx * MOUSE_SENS;
+
+        mouse.pos.x = cx;
+        mouse.pos.y = cy;
+    }
+
+
     last_mouse_x = mouse.pos.x;
 
-    p.a += mdx * MOUSE_SENS;
+    if (mouse.delta.x || mouse.delta.y)
+        p.a += mouse.delta.x * MOUSE_SENS;
 
     vec2 size = get_size(wm_get_canvas(wid));
 
@@ -187,7 +223,7 @@ void game_update(int wid) {
     if (!is_wall((int)p.x, (int)(p.y + dy)))
         p.y += dy;
 
-    for (int y = h / 2; y < h; y += 2) {
+    for (int y = h / 2; y < h; y += lines) {
         float pz = h * 0.5f;
         float rowDist = pz / (y - h / 2);
 
@@ -214,7 +250,7 @@ void game_update(int wid) {
             floorY += stepY * 2;
 
             uint32_t fc = floor_tex[ty * TEX_W + tx];
-            uint32_t cc = ceil_tex[ty * TEX_W + tx];
+            uint32_t cc = floor_tex[ty * TEX_W + tx];
 
             uint8_t fr = (fc >> 16) & 0xFF;
             uint8_t fg = (fc >> 8) & 0xFF;
@@ -228,17 +264,14 @@ void game_update(int wid) {
             gfx_color_t ceil_col  = {cr, cg, cb, 255};
 
             wm_draw_pixel((vec2){x, y}, floor_col);
-            wm_draw_pixel((vec2){x + 1, y}, floor_col);
-
             wm_draw_pixel((vec2){x, h - y - 1}, ceil_col);
-            wm_draw_pixel((vec2){x + 1, h - y - 1}, ceil_col);
         }
     }
 
     float inv_w = 1.0f / w;
     float fov = PI / 3.0f;
 
-    for (int x = 0; x < w; x += 2) {
+    for (int x = 0; x < w; x += lines) {
         float t = x * inv_w;
 
         float ray_a = p.a - fov * 0.5f + t * fov;
@@ -269,7 +302,7 @@ void game_update(int wid) {
         float light = 1.0f / (1.0f + hit.dist * hit.dist * 0.12f);
 
         if (hit.side)
-            light *= 0.7f;
+            light *= BRIGHTNESS;
 
         if (light < 0.1f)
             light = 0.1f;
@@ -286,10 +319,25 @@ void game_update(int wid) {
 
             gfx_color_t c = {r, g, b, 255};
 
-            wm_draw_pixel((vec2){x, y}, c);
-            wm_draw_pixel((vec2){x + 1, y}, c);
+            for (int lx = 0; lx < lines; lx++) {
+                wm_draw_pixel((vec2){x + lx, y}, c);
+            }
         }
     }
+
+    wm_draw_text_ex("Use WASD to move, mouse to look around", (vec2){10, 10}, GFX_BLACK, GFX_WHITE, 2);
+
+/*
+    char buf[32];
+    buf[0] = '\0';
+
+    char key = keyboard_getchar_nonblocking();
+
+    kstrcat(buf, "PRESSED_KEY: ");
+    kstrcatc(buf, key ? key : ' ');
+
+    wm_draw_text_ex(buf, (vec2){0, win->bounds.h - 8}, GFX_BLACK, GFX_WHITE, 1);
+*/
 
     wm_end_draw();
 }

@@ -13,6 +13,7 @@ void halt(void);
 // cursor
 typedef struct {
     vec2 pos;
+    vec2 delta;
     uint8_t left;
     uint8_t right;
     uint8_t middle;

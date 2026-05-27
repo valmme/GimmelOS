@@ -17,12 +17,19 @@ void wm_init(void) {
         wm.windows[i].dragging      = 0;
         wm.windows[i].resizing      = 0;
         wm.windows[i].widgets_count = 0;
+        wm.windows[i].minimized     = 0;
+        wm.windows[i].maximized     = 0;
+
+        wm.windows[i].on_init       = 0;
+        wm.windows[i].on_update     = 0;
+        wm.windows[i].on_key        = 0;
+        wm.windows[i].on_destroy    = 0;
     }
 }
 
 int wm_create(const char* title, rec bounds, gfx_color_t bg) {
+    
     if (wm.count >= WM_MAX_WINDOWS) return -1;
-
     int id = wm.count++;
     window_t* w = &wm.windows[id];
 
@@ -34,8 +41,26 @@ int wm_create(const char* title, rec bounds, gfx_color_t bg) {
     w->dragging      = 0;
     w->resizing      = 0;
     w->widgets_count = 0;
+    w->minimized     = 0;
+    w->maximized     = 0;
 
     return id;
+}
+
+int wm_create_app(const char* title, rec bounds, gfx_color_t bg, void (*on_init)(int), void (*on_update)(int)) {
+    int id = wm_create(title, bounds, bg);
+    if (id < 0) return -1;
+
+    wm.windows[id].on_init = on_init;
+    wm.windows[id].on_update = on_update;
+
+    if (on_init) on_init(id);
+
+    return id;
+} 
+
+window_t* wm_get_by_id(int id) {
+    return &wm.windows[id];
 }
 
 void wm_destroy(int id) {
@@ -83,7 +108,9 @@ int wm_hit_body(int id, vec2 pos) {
 int wm_hit_test(vec2 pos) {
     for (int i = wm.count - 1; i >= 0; i--) {
         window_t* w = &wm.windows[i];
-        if (!w->visible) continue;
+
+        if (!w->visible)
+            continue;
 
         if (pos.x >= w->bounds.x &&
             pos.x < w->bounds.x + (int32_t)w->bounds.w &&
@@ -95,9 +122,66 @@ int wm_hit_test(vec2 pos) {
     return -1;
 }
 
+static void wm_click_close(int id) {
+    wm_destroy(id);
+}
+
+static void wm_click_maximize(int id) {
+    window_t* w = &wm.windows[id];
+
+    w->mouse_capture = 0;
+    if (w->maximized) {
+        w->bounds = w->saved_bounds;
+        w->maximized = 0;
+    }
+
+    else if (w->minimized) {
+        w->minimized = 0;
+        w->saved_bounds = w->bounds;
+        w->bounds = (rec){0, 0, width, height};
+        w->maximized = 1;
+    }
+    
+    else {
+        w->saved_bounds = w->bounds;
+        w->bounds = (rec){0, 0, width, height};
+        w->maximized = 1;
+    }
+}
+
+static rec wm_btn_rect(window_t* w, int btn) {
+    int32_t x = w->bounds.x + (int32_t)w->bounds.w - WM_BTN_MARGIN - (btn + 1) * (WM_BTN_SIZE + WM_BTN_MARGIN);
+    int32_t y = w->bounds.y + (WM_TITLEBAR_H - WM_BTN_SIZE) / 2;
+
+    return (rec){x, y, WM_BTN_SIZE, WM_BTN_SIZE};
+}
+
+static void wm_click_minimize(int id) {
+    window_t* w = &wm.windows[id];
+    w->minimized = !w->minimized;
+    w->mouse_capture = 0;
+}
+
 void wm_handle_mouse(vec2 pos, uint8_t left) {
+
+    if (wm_hit_test(pos) == -1) {
+        wm.focused = -1;
+
+        for (int i = 0; i < wm.count; i++)
+            wm.windows[i].focused = 0;
+    }
+
     if (left && !wm.prev_left) {
         int id = wm_hit_test(pos);
+
+        if (id < 0) {
+            for (int i = 0; i < wm.count; i++) {
+                wm.windows[i].focused = 0;
+            }
+
+            wm.focused = -1;
+            return;
+        }
 
         for (int i = 0; i < wm.count; i++)
             wm.windows[i].focused = 0;
@@ -109,21 +193,30 @@ void wm_handle_mouse(vec2 pos, uint8_t left) {
             window_t* w = &wm.windows[wm.focused];
             w->focused  = 1;
 
-            if (wm_hit_resize(wm.focused, pos)) {
-                w->resizing = 1;
+            if (!w->minimized && !w->maximized && wm_hit_resize(wm.focused, pos)) {
+                w->resizing       = 1;
                 w->resize_start.x = pos.x;
                 w->resize_start.y = pos.y;
                 w->resize_start.w = w->bounds.w;
                 w->resize_start.h = w->bounds.h;
-            } 
-            
+            }
+
             else if (wm_hit_titlebar(wm.focused, pos)) {
-                w->dragging = 1;
-                w->drag_off.x = pos.x - w->bounds.x;
-                w->drag_off.y = pos.y - w->bounds.y;
-            } 
-            
-            else if (wm_hit_body(wm.focused, pos)) {
+                rec r_close = wm_btn_rect(w, 0);
+                rec r_max   = wm_btn_rect(w, 1);
+                rec r_min   = wm_btn_rect(w, 2);
+
+                if (HIT(r_close, pos)) wm_click_close(wm.focused);
+                else if (HIT(r_max,   pos)) wm_click_maximize(wm.focused);
+                else if (HIT(r_min,   pos)) wm_click_minimize(wm.focused);
+                else {
+                    w->dragging   = 1;
+                    w->drag_off.x = pos.x - w->bounds.x;
+                    w->drag_off.y = pos.y - w->bounds.y;
+                }
+            }
+
+            else if (!w->minimized && wm_hit_body(wm.focused, pos)) {
                 wm_handle_widgets_mouse(wm.focused, pos, left);
             }
         } 
@@ -144,7 +237,7 @@ void wm_handle_mouse(vec2 pos, uint8_t left) {
         for (int i = 0; i < wm.count; i++) {
             window_t* w = &wm.windows[i];
 
-            if (w->dragging) {
+            if (w->dragging && !w->maximized) {
                 w->bounds.x = pos.x - w->drag_off.x;
                 w->bounds.y = pos.y - w->drag_off.y;
             }
@@ -171,6 +264,7 @@ void wm_handle_mouse(vec2 pos, uint8_t left) {
     wm.prev_left = left;
 }
 
+// widgets
 void wm_handle_widgets_mouse(int wid, vec2 pos, uint8_t left) {
     window_t* w = &wm.windows[wid];
 
@@ -330,20 +424,64 @@ void wm_draw(int id) {
     gfx_color_t title_fg = w->focused ? GFX_WHITE     : GFX_LIGHT_GRAY;
     gfx_color_t title_bg = w->focused ? GFX_DARK_BLUE : GFX_DARK_GRAY;
 
-    gfx_draw_fill_rec(w->bounds, w->bg);
-
     rec title_bar = { w->bounds.x, w->bounds.y, w->bounds.w, WM_TITLEBAR_H };
+
     gfx_draw_fill_rec(title_bar, title_bg);
     gfx_print(w->title, (vec2){ w->bounds.x + 4, w->bounds.y + 6 }, title_fg, title_bg);
+    gfx_draw_rec(title_bar, border);
+
+    rec rc = wm_btn_rect(w, 0);
+    gfx_color_t close_bg = w->focused ? (gfx_color_t){180, 40, 40, 255} : (gfx_color_t){ 80, 20, 20, 255};
+
+    gfx_draw_fill_rec(rc, close_bg);
+    gfx_draw_rec(rc, border);
+    gfx_draw_line((vec2){rc.x+2, rc.y+2}, (vec2){rc.x+WM_BTN_SIZE-3, rc.y+WM_BTN_SIZE-3}, title_fg);
+    gfx_draw_line((vec2){rc.x+WM_BTN_SIZE-3, rc.y+2}, (vec2){rc.x+2, rc.y+WM_BTN_SIZE-3}, title_fg);
+
+    rec rm = wm_btn_rect(w, 1);
+    gfx_draw_fill_rec(rm, title_bg);
+    gfx_draw_rec(rm, border);
+
+    if (w->maximized) {
+        rec inner = { rm.x+3, rm.y+4, WM_BTN_SIZE-6, WM_BTN_SIZE-7 };
+        gfx_draw_rec(inner, title_fg);
+        gfx_draw_line((vec2){rm.x+5, rm.y+2}, (vec2){rm.x+WM_BTN_SIZE-3, rm.y+2}, title_fg);
+        gfx_draw_line((vec2){rm.x+WM_BTN_SIZE-3, rm.y+2}, (vec2){rm.x+WM_BTN_SIZE-3, rm.y+WM_BTN_SIZE-5}, title_fg);
+    }
+    
+    else {
+        rec sq = { rm.x+2, rm.y+2, WM_BTN_SIZE-4, WM_BTN_SIZE-4 };
+        gfx_draw_rec(sq, title_fg);
+    }
+
+    rec rn = wm_btn_rect(w, 2);
+    gfx_draw_fill_rec(rn, title_bg);
+    gfx_draw_rec(rn, border);
+
+    int32_t my = rn.y + WM_BTN_SIZE - 4;
+    gfx_draw_line((vec2){rn.x+2, my}, (vec2){rn.x+WM_BTN_SIZE-3, my}, title_fg);
+
+    if (w->minimized) return;
+
+    rec body = {
+        w->bounds.x,
+        w->bounds.y + WM_TITLEBAR_H,
+        w->bounds.w,
+        w->bounds.h - WM_TITLEBAR_H
+    };
+
+    gfx_draw_fill_rec(body, w->bg);
     gfx_draw_rec(w->bounds, border);
 
-    rec handle = {
-        w->bounds.x + (int32_t)w->bounds.w - WM_RESIZE_BORDER,
-        w->bounds.y + (int32_t)w->bounds.h - WM_RESIZE_BORDER,
-        WM_RESIZE_BORDER,
-        WM_RESIZE_BORDER
-    };
-    gfx_draw_fill_rec(handle, border);
+    if (!w->maximized) {
+        rec handle = {
+            w->bounds.x + (int32_t)w->bounds.w - WM_RESIZE_BORDER,
+            w->bounds.y + (int32_t)w->bounds.h - WM_RESIZE_BORDER,
+            WM_RESIZE_BORDER,
+            WM_RESIZE_BORDER
+        };
+        gfx_draw_fill_rec(handle, border);
+    }
 
     for (int i = 0; i < w->widgets_count; i++)
         wm_draw_widget(w, &w->widgets[i]);
@@ -354,6 +492,8 @@ void wm_draw_all(void) {
         wm_draw(i);
 }
 
+
+// graphics
 wm_canvas_t wm_get_canvas(int wid) {
     window_t* w = &wm.windows[wid];
     return (wm_canvas_t){
@@ -406,30 +546,50 @@ void wm_draw_line(vec2 a, vec2 b, gfx_color_t color) {
     }
 }
 
-void wm_draw_text(const char* str, vec2 pos, gfx_color_t fg, gfx_color_t bg) {
-    vec2 abs_pos = {current_canvas.x + pos.x, current_canvas.y + pos.y};
+void wm_putchar_ex(char c, vec2 pos, gfx_color_t fg, gfx_color_t bg, int scale) {
+    const uint8_t* glyph = font[(uint8_t)c];
 
+    for (int row = 0; row < 8; row++) {
+        uint8_t bits = glyph[row];
+
+        for (int col = 0; col < 8; col++) {
+            gfx_color_t color = (bits & (0x80 >> (7 - col))) ? fg : bg;
+            
+            for (int sy = 0; sy < scale; sy++) {
+                for (int sx = 0; sx < scale; sx++) {
+                    gfx_put_pixel_clipped((vec2){
+                        current_canvas.x + pos.x + col * scale + sx,
+                        current_canvas.y + pos.y + row * scale + sy
+                    }, color);
+                }
+            }
+        }
+    }
+}
+
+void wm_putchar(char c, vec2 pos, gfx_color_t fg, gfx_color_t bg) {
+    wm_putchar_ex(c, pos, fg, bg, 1);
+}
+
+void wm_draw_text_ex(const char* str, vec2 pos, gfx_color_t fg, gfx_color_t bg, int scale) {
+    int start_x = pos.x;
     while (*str) {
         if (*str == '\n') {
-            abs_pos.y += FB_CHAR_H;
-            abs_pos.x  = current_canvas.x + pos.x;
+            pos.y += FB_CHAR_H * scale;
+            pos.x  = start_x;
         } 
         
         else {
-            const uint8_t* glyph = font[(uint8_t)*str];
-            for (int row = 0; row < 8; row++) {
-                uint8_t bits = reverse_bits(glyph[row]);
-                for (int col = 0; col < 8; col++) {
-                    gfx_color_t c = (bits & (0x80 >> col)) ? fg : bg;
-                    gfx_put_pixel_clipped((vec2){abs_pos.x + col, abs_pos.y + row}, c);
-                }
-            }
-
-            abs_pos.x += FB_CHAR_W;
+            wm_putchar_ex(*str, pos, fg, bg, scale);
+            pos.x += FB_CHAR_W * scale;
         }
 
         str++;
     }
+}
+
+void wm_draw_text(const char* str, vec2 pos, gfx_color_t fg, gfx_color_t bg) {
+    wm_draw_text_ex(str, pos, fg, bg, 1);
 }
 
 void wm_draw_circle(vec2 pos, int32_t radius, gfx_color_t color) {

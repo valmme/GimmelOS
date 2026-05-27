@@ -10,7 +10,12 @@
 #define WM_MIN_W 100
 #define WM_MIN_H 60
 
+#define WM_BTN_SIZE 14
+#define WM_BTN_MARGIN 4
+
 #define WM_MAX_WIDGETS 32
+
+#define HIT(r, p) ((p).x >= (r).x && (p).x < (r).x + (int32_t)(r).w && (p).y >= (r).y && (p).y < (r).y + (int32_t)(r).h)
 
 typedef enum {
     WIDGET_NONE,
@@ -37,19 +42,31 @@ typedef struct {
 
 typedef struct {
     rec bounds;
+    rec saved_bounds;
+
     char title[64];
     gfx_color_t bg;
 
+    uint8_t maximized;
+    uint8_t minimized;
     uint8_t visible;
     uint8_t focused;
     uint8_t dragging;
     uint8_t resizing;
+    uint8_t mouse_capture;
+
+    void* user_data;
 
     vec2 drag_off;
     rec resize_start;
 
     widget_t widgets[WM_MAX_WIDGETS];
     int widgets_count;
+
+    void (*on_init)(int wid); // runs when the window is created
+    void (*on_update)(int wid); // runs every frame
+    void (*on_key)(int wid, char c); // runs when a key is pressed while the window is focused
+    void (*on_destroy)(int wid); // runs when the window is closed
 } window_t;
 
 typedef struct {
@@ -94,6 +111,9 @@ void wm_end_draw(void);
 void wm_draw_pixel(vec2 pos, gfx_color_t color);
 void wm_draw_fill_rec(rec r, gfx_color_t color);
 void wm_draw_line(vec2 a, vec2 b, gfx_color_t color);
+void wm_putchar_ex(char c, vec2 pos, gfx_color_t fg, gfx_color_t bg, int scale);
+void wm_putchar(char c, vec2 pos, gfx_color_t fg, gfx_color_t bg);
+void wm_draw_text_ex(const char* str, vec2 pos, gfx_color_t fg, gfx_color_t bg, int scale);
 void wm_draw_text(const char* str, vec2 pos, gfx_color_t fg, gfx_color_t bg);
 void wm_draw_circle(vec2 pos, int32_t radius, gfx_color_t color);
 void wm_draw_fill_circle(vec2 pos, int32_t radius, gfx_color_t color);

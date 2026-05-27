@@ -43,6 +43,31 @@ static inline void kstrncpy(char* dst, const char* src, size_t max) {
     dst[i] = '\0';
 }
 
+static inline char* kstrcat(char* dst, const char* src) {
+    int i = 0;
+    int j = 0;
+
+    while (dst[i] != '\0') i++;
+    while (src[j] != '\0') {
+        dst[i + j] = src[j];
+        j++;
+    }
+
+    dst[i + j] = '\0';
+    return dst;
+}
+
+static inline char* kstrcatc(char* dst, char c) {
+    int i = 0;
+    
+    while (dst[i] != '\0') i++;
+
+    dst[i] = c;
+    dst[i + 1] = '\0';
+
+    return dst;
+}
+
 static inline void kstrncat(char* dst, const char* src, size_t n) {
     size_t dlen = kstrlen(dst);
     size_t i = 0;

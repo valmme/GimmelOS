@@ -78,7 +78,11 @@ void mouse_poll(void) {
     if (!(status & 0x01)) return; // no data
     if (!(status & 0x20)) return; // data from keyboard
 
+    mouse.delta.x = 0;
+    mouse.delta.y = 0;
+
     uint8_t flags = inb(0x60);
+    if (!(flags & 0x08)) return;
 
     mouse_wait_read();
     int32_t dx = (int32_t)(int8_t)inb(0x60);
@@ -94,6 +98,15 @@ void mouse_poll(void) {
 
     mouse.pos.x += dx;
     mouse.pos.y -= dy;
+
+    mouse.delta.x = dx;
+    mouse.delta.y = -dy;
+
+    if (dx == 0 && dy == 0) {
+        mouse.delta.x = 0;
+        mouse.delta.y = 0;
+        return;
+    }
 
     if (mouse.pos.x < 0) mouse.pos.x = 0;
     if (mouse.pos.y < 0) mouse.pos.y = 0;
