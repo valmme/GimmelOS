@@ -21,6 +21,12 @@ static const char sc_shifted[128] = {
 static int shift_held = 0;
 static int ctrl_held  = 0;
 static int caps_lock  = 0;
+static int kbd_pending_e0 = 0;
+
+static int kbd_has_data(void) {
+    uint8_t status = inb(KBD_STATUS_PORT);
+    return (status & 0x01) && !(status & 0x20);
+}
 
 void keyboard_init(void) {
     while (inb(KBD_STATUS_PORT) & 0x01)
@@ -28,18 +34,59 @@ void keyboard_init(void) {
 }
 
 int keyboard_haskey(void) {
-    uint8_t status = inb(KBD_STATUS_PORT);
-    return (status & 0x01) && !(status & 0x20);
+    return kbd_has_data();
+}
+
+static int process_scancode(uint8_t sc) {
+    if (sc == SC_LSHIFT || sc == SC_RSHIFT) { shift_held = 1; return -1; }
+    if (sc == SC_CTRL)                       { ctrl_held  = 1; return -1; }
+    if (sc == SC_CAPS)                       { caps_lock  = !caps_lock; return -1; }
+
+    if (sc & KEY_RELEASE) {
+        uint8_t rel = sc & ~KEY_RELEASE;
+        if (rel == SC_LSHIFT || rel == SC_RSHIFT) shift_held = 0;
+        if (rel == SC_CTRL)                        ctrl_held  = 0;
+        return -1;
+    }
+
+    switch (sc) {
+        case 0x47: return '7';
+        case 0x48: return '8';
+        case 0x49: return '9';
+        case 0x4B: return '4';
+        case 0x4C: return '5';
+        case 0x4D: return '6';
+        case 0x4F: return '1';
+        case 0x50: return '2';
+        case 0x51: return '3';
+        case 0x52: return '0';
+        case 0x53: return '.';
+        case 0x4A: return '-';
+        case 0x4E: return '+';
+        case 0x37: return '*';
+        case 0x35: return '/';
+    }
+
+    if (sc >= 128) return -1;
+
+    char c = shift_held ? sc_shifted[sc] : sc_ascii[sc];
+    if (caps_lock && c >= 'a' && c <= 'z') c -= 32;
+    if (caps_lock && c >= 'A' && c <= 'Z' && shift_held) c += 32;
+    if (ctrl_held) {
+        if (c == 's' || c == 'S') return 19;
+        if (c == 'z' || c == 'Z') return 26;
+    }
+
+    return c ? (int)c : -1;
 }
 
 int keyboard_getchar(void) {
     while (1) {
-        while (!keyboard_haskey());
-
+        while (!kbd_has_data());
         uint8_t sc = inb(KBD_DATA_PORT);
 
         if (sc == 0xE0) {
-            while (!keyboard_haskey());
+            while (!kbd_has_data());
             uint8_t ext = inb(KBD_DATA_PORT);
             switch (ext) {
                 case 0x48: return KEY_UP;
@@ -50,107 +97,39 @@ int keyboard_getchar(void) {
             continue;
         }
 
-        if (sc & KEY_RELEASE) {
-            uint8_t rel = sc & ~KEY_RELEASE;
-            if (rel == SC_LSHIFT || rel == SC_RSHIFT) shift_held = 0;
-            if (rel == SC_CTRL)  ctrl_held = 0;
-            continue;
-        }
-
-        if (sc == SC_LSHIFT || sc == SC_RSHIFT) { shift_held = 1; continue; }
-        if (sc == SC_CTRL)  { ctrl_held  = 1; continue; }
-        if (sc == SC_CAPS)  { caps_lock  = !caps_lock; continue; }
-
-        switch (sc) {
-            case 0x47: return '7';
-            case 0x48: return '8';
-            case 0x49: return '9';
-            case 0x4B: return '4';
-            case 0x4C: return '5';
-            case 0x4D: return '6';
-            case 0x4F: return '1';
-            case 0x50: return '2';
-            case 0x51: return '3';
-            case 0x52: return '0';
-            case 0x53: return '.';
-            case 0x4A: return '-';
-            case 0x4E: return '+';
-            case 0x37: return '*';
-            case 0x35: return '/';
-        }
-
-        char c = shift_held ? sc_shifted[sc] : sc_ascii[sc];
-        if (caps_lock && c >= 'a' && c <= 'z') c -= 32;
-        if (caps_lock && c >= 'A' && c <= 'Z' && shift_held) c += 32;
-        if (ctrl_held) {
-            if (c == 's' || c == 'S') return 19;
-            if (c == 'z' || c == 'Z') return 26;
-        }
-
-        if (c) return c;
+        int r = process_scancode(sc);
+        if (r >= 0) return r;
     }
 }
 
-char keyboard_getchar_nonblocking(void) {
-    while (1) {
-        uint8_t status = inb(KBD_STATUS_PORT);
-        if (!(status & 0x01)) return 0;
-        if (status & 0x20)    return 0;
-
-        uint8_t sc = inb(KBD_DATA_PORT);
-
-        if (sc == 0xE0) {
-            status = inb(KBD_STATUS_PORT);
-            if (!(status & 0x01) || (status & 0x20)) return 0;
-            uint8_t ext = inb(KBD_DATA_PORT);
-            switch (ext) {
-                case 0x48: return KEY_UP;
-                case 0x50: return KEY_DOWN;
-                case 0x4B: return KEY_LEFT;
-                case 0x4D: return KEY_RIGHT;
-            }
-
-            return 0;
-        }
-
-        if (sc & KEY_RELEASE) {
-            uint8_t rel = sc & ~KEY_RELEASE;
-            if (rel == SC_LSHIFT || rel == SC_RSHIFT) shift_held = 0;
-            if (rel == SC_CTRL)  ctrl_held = 0;
-            return 0;
-        }
-
-        if (sc == SC_LSHIFT || sc == SC_RSHIFT) { shift_held = 1; return 0; }
-        if (sc == SC_CTRL)  { ctrl_held  = 1; return 0; }
-        if (sc == SC_CAPS)  { caps_lock  = !caps_lock; return 0; }
-
-        switch (sc) {
-            case 0x47: return '7';
-            case 0x48: return '8';
-            case 0x49: return '9';
-            case 0x4B: return '4';
-            case 0x4C: return '5';
-            case 0x4D: return '6';
-            case 0x4F: return '1';
-            case 0x50: return '2';
-            case 0x51: return '3';
-            case 0x52: return '0';
-            case 0x53: return '.';
-            case 0x4A: return '-';
-            case 0x4E: return '+';
-            case 0x37: return '*';
-            case 0x35: return '/';
-        }
-
-        char c = shift_held ? sc_shifted[sc] : sc_ascii[sc];
-        if (caps_lock && c >= 'a' && c <= 'z') c -= 32;
-        if (caps_lock && c >= 'A' && c <= 'Z' && shift_held) c += 32;
-        if (ctrl_held) {
-            if (c == 's' || c == 'S') return 19;
-            if (c == 'z' || c == 'Z') return 26;
-        }
-
-        if (c) return c;
+int keyboard_getchar_nonblocking(void) {
+    uint8_t status = inb(KBD_STATUS_PORT);
+    if (!(status & 0x01)) return 0;
+    if (status & 0x20) {
+        inb(KBD_DATA_PORT);
         return 0;
     }
+
+    uint8_t sc = inb(KBD_DATA_PORT);
+
+    if (sc == 0xE0) {
+        kbd_pending_e0 = 1;
+        return 0;
+    }
+
+    if (kbd_pending_e0) {
+        kbd_pending_e0 = 0;
+        switch (sc) {
+            case 0x48: return KEY_UP;
+            case 0x50: return KEY_DOWN;
+            case 0x4B: return KEY_LEFT;
+            case 0x4D: return KEY_RIGHT;
+        }
+        return 0;
+    }
+
+    if (sc & 0x80) return 0;
+
+    int r = process_scancode(sc);
+    return (r >= 0) ? r : 0;
 }

@@ -24,6 +24,7 @@ void wm_init(void) {
         wm.windows[i].on_update     = 0;
         wm.windows[i].on_key        = 0;
         wm.windows[i].on_destroy    = 0;
+        wm.windows[i].on_draw       = 0;
     }
 }
 
@@ -47,12 +48,13 @@ int wm_create(const char* title, rec bounds, gfx_color_t bg) {
     return id;
 }
 
-int wm_create_app(const char* title, rec bounds, gfx_color_t bg, void (*on_init)(int), void (*on_update)(int)) {
+int wm_create_app(const char* title, rec bounds, gfx_color_t bg, void (*on_init)(int), void (*on_update)(int), void (*on_draw)(int)) {
     int id = wm_create(title, bounds, bg);
     if (id < 0) return -1;
 
     wm.windows[id].on_init = on_init;
     wm.windows[id].on_update = on_update;
+    wm.windows[id].on_draw = on_draw;
 
     if (on_init) on_init(id);
 
@@ -473,6 +475,8 @@ void wm_draw(int id) {
     gfx_draw_fill_rec(body, w->bg);
     gfx_draw_rec(w->bounds, border);
 
+    if (w->on_draw) w->on_draw(id);
+
     if (!w->maximized) {
         rec handle = {
             w->bounds.x + (int32_t)w->bounds.w - WM_RESIZE_BORDER,
@@ -485,6 +489,7 @@ void wm_draw(int id) {
 
     for (int i = 0; i < w->widgets_count; i++)
         wm_draw_widget(w, &w->widgets[i]);
+
 }
 
 void wm_draw_all(void) {

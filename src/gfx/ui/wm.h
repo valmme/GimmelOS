@@ -65,6 +65,7 @@ typedef struct {
 
     void (*on_init)(int wid); // runs when the window is created
     void (*on_update)(int wid); // runs every frame
+    void (*on_draw)(int wid); // runs every frame, after on_update, used for custom drawing
     void (*on_key)(int wid, char c); // runs when a key is pressed while the window is focused
     void (*on_destroy)(int wid); // runs when the window is closed
 } window_t;
@@ -82,6 +83,7 @@ extern wm_t wm;
 // windows
 void wm_init(void);
 int wm_create(const char* title, rec bounds, gfx_color_t bg);
+int wm_create_app(const char* title, rec bounds, gfx_color_t bg, void (*on_init)(int), void (*on_update)(int), void (*on_draw)(int));
 void wm_destroy(int id);
 
 void wm_draw(int id);

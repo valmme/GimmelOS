@@ -7,6 +7,7 @@
 #include "filesystem/fs.h"
 
 #include "apps/wolfenstein/game.h"
+#include "apps/editor/editor.h"
 
 void shell_run(void);
 
@@ -55,15 +56,14 @@ void gfx_render_frame() {
     mouse_init();
     wm_init();
 
-    wm_create_app("wolfenstein", (rec){50, 50, 240, 160}, GFX_BLACK, game_init, game_update);
+    // wm_create_app("wolfenstein", (rec){50, 50, 400, 300}, (gfx_color_t){30,30,30,255}, game_init, game_update);
+    wm_create_app("Lito Editor", (rec){50, 50, 400, 300}, (gfx_color_t){30,30,30,255}, editor_init, editor_update, editor_draw);
 
     uint8_t prev_left = 0;
 
     game_init();
 
     while (1) {
-        keyboard_update_game();
-
         mouse_poll();
         wm_handle_mouse(mouse.pos, mouse.left);
 
@@ -89,8 +89,6 @@ void gfx_render_frame() {
 
         gfx_begin_frame(GFX_DARK_BLUE);
 
-        wm_draw_all();
-
         for (int i = 0; i < wm.count; i++) {
             window_t* w = &wm.windows[i];
 
@@ -100,6 +98,8 @@ void gfx_render_frame() {
             if (w->on_update)
                 w->on_update(i);
         }
+
+        wm_draw_all();
 
         int captured = 0;
 

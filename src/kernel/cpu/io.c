@@ -51,7 +51,6 @@ void mouse_init(void) {
     mouse_wait_write();
     outb(0x64, 0xA8);
 
-    // interrupt
     mouse_wait_write();
     outb(0x64, 0x20);
     mouse_wait_read();
@@ -70,46 +69,54 @@ void mouse_init(void) {
     mouse_read();
 
     mouse.pos.x = 400;
-    mouse.pos.y =  300;
+    mouse.pos.y = 300;
 }
 
 void mouse_poll(void) {
     uint8_t status = inb(0x64);
-    if (!(status & 0x01)) return; // no data
-    if (!(status & 0x20)) return; // data from keyboard
 
-    mouse.delta.x = 0;
-    mouse.delta.y = 0;
+    if (!(status & 0x01)) return;
+    if (!(status & 0x20)) return;
 
     uint8_t flags = inb(0x60);
-    if (!(flags & 0x08)) return;
 
-    mouse_wait_read();
+    if (!(flags & 0x08))
+        return;
+
+    while (1) {
+        status = inb(0x64);
+
+        if (!(status & 0x01)) return;
+        if (status & 0x20) break;
+    }
+
     int32_t dx = (int32_t)(int8_t)inb(0x60);
-    
-    mouse_wait_read();
+
+    while (1) {
+        status = inb(0x64);
+
+        if (!(status & 0x01)) return;
+        if (status & 0x20) break;
+    }
+
     int32_t dy = (int32_t)(int8_t)inb(0x60);
 
-    if (flags & 0x40 || flags & 0x80) return;
+    if (flags & 0x40 || flags & 0x80)
+        return;
 
     mouse.left   = (flags & 0x01) != 0;
     mouse.right  = (flags & 0x02) != 0;
     mouse.middle = (flags & 0x04) != 0;
 
-    mouse.pos.x += dx;
-    mouse.pos.y -= dy;
-
     mouse.delta.x = dx;
     mouse.delta.y = -dy;
 
-    if (dx == 0 && dy == 0) {
-        mouse.delta.x = 0;
-        mouse.delta.y = 0;
-        return;
-    }
+    mouse.pos.x += dx;
+    mouse.pos.y -= dy;
 
     if (mouse.pos.x < 0) mouse.pos.x = 0;
     if (mouse.pos.y < 0) mouse.pos.y = 0;
-    if ((uint32_t)mouse.pos.x >= width)  mouse.pos.x = (int32_t)width  - 1;
-    if ((uint32_t)mouse.pos.y >= height) mouse.pos.y = (int32_t)height - 1;
+
+    if ((uint32_t)mouse.pos.x >= width) mouse.pos.x = width - 1;
+    if ((uint32_t)mouse.pos.y >= height) mouse.pos.y = height - 1;
 }
