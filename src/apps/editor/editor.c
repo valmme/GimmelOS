@@ -61,6 +61,7 @@ static int ends_with(const char *str, const char *ext) {
     int slen = kstrlen(str);
     int elen = kstrlen(ext);
     if (slen < elen) return 0;
+
     return kstrcmp(str + slen - elen, ext) == 0;
 }
 
@@ -73,17 +74,18 @@ static int is_c_file(const char *filename) {
 static int is_keyword(const char *word) {
     for (size_t i = 0; i < sizeof(keywords) / sizeof(keywords[0]); i++)
         if (kstrcmp(word, keywords[i]) == 0) return 1;
+
     return 0;
 }
 
 static int is_type_starter(const char *word) {
-    return kstrcmp(word, "struct") == 0 || kstrcmp(word, "class") == 0 ||
-           kstrcmp(word, "enum") == 0 || kstrcmp(word, "typedef") == 0;
+    return kstrcmp(word, "struct") == 0 || kstrcmp(word, "class") == 0 || kstrcmp(word, "enum") == 0 || kstrcmp(word, "typedef") == 0;
 }
 
 static void insert_char(char c) {
     if (len >= EDITOR_BUF - 1) return;
     for (int i = len; i > cursor_x; i--) buf[i] = buf[i - 1];
+
     buf[cursor_x++] = c;
     len++;
     buf[len] = 0;
@@ -92,16 +94,19 @@ static void insert_char(char c) {
 static void delete_char(void) {
     if (cursor_x <= 0) return;
     for (int i = cursor_x - 1; i < len; i++) buf[i] = buf[i + 1];
+
     cursor_x--;
     len--;
 }
 
 static void get_line_col(int *line_out, int *col_out) {
     int line = 0, col = 0;
+    
     for (int i = 0; i < cursor_x; i++) {
         if (buf[i] == '\n') { line++; col = 0; }
         else col++;
     }
+
     *line_out = line;
     *col_out = col;
 }
@@ -109,6 +114,7 @@ static void get_line_col(int *line_out, int *col_out) {
 static int find_line_start(int target_line) {
     if (target_line == 0) return 0;
     int pos = 0, line = 0;
+
     while (pos < len) {
         if (buf[pos] == '\n') {
             line++;
@@ -116,6 +122,7 @@ static int find_line_start(int target_line) {
         }
         pos++;
     }
+
     return pos;
 }
 
@@ -129,12 +136,14 @@ static int count_total_lines(void) {
     int lines = 1;
     for (int i = 0; i < len; i++)
         if (buf[i] == '\n') lines++;
+
     return lines;
 }
 
 static void update_scroll(int visible_rows) {
     int line, col;
     get_line_col(&line, &col);
+
     if (line < scroll_top) scroll_top = line;
     else if (line >= scroll_top + visible_rows) scroll_top = line - visible_rows + 1;
 }
@@ -148,12 +157,14 @@ static int digits(int n) {
 static void draw_int(int n, vec2 pos, gfx_color_t fg, gfx_color_t bg) {
     char tmp[12];
     int i = 0;
+
     if (n == 0) { tmp[i++] = '0'; }
     else {
         int rev = 0, cnt = 0, x = n;
         while (x > 0) { rev = rev * 10 + x % 10; x /= 10; cnt++; }
         for (int j = 0; j < cnt; j++) { tmp[i++] = '0' + (rev % 10); rev /= 10; }
     }
+
     tmp[i] = 0;
     wm_draw_text(tmp, pos, fg, bg);
 }
@@ -180,6 +191,7 @@ static void rc_emit(render_ctx_t *rc, char c) {
         if (px >= rc->text_x0 && px + CHAR_W * SCALE <= rc->canvas_w)
             wm_putchar_ex(c, (vec2){px, py}, rc->cur_color, C_BG, SCALE);
     }
+
     rc->cur_col++;
 }
 
@@ -211,9 +223,12 @@ static void draw_syntax(render_ctx_t *rc) {
                 rc_emit_str(rc, word, w);
                 w = 0;
             }
+
             rc->cur_color = C_COMMENT;
+
             while (i < len && buf[i] != '\n') { rc_emit(rc, buf[i]); i++; }
             if (i < len) rc_newline(rc);
+
             continue;
         }
 
@@ -248,6 +263,7 @@ static void draw_syntax(render_ctx_t *rc) {
 
             in_macro = 1;
         }
+
         if (in_macro) {
             rc->cur_color = C_MACRO;
             if (c == '\n') { rc_newline(rc); in_macro = 0; }
@@ -323,8 +339,10 @@ static void draw_syntax(render_ctx_t *rc) {
             c == '+' || c == '-' || c == '/' || c == '%' ||
             c == '^' || c == '~' || c == '?' || c == ':')
             rc->cur_color = C_PUNCT;
+
         else
             rc->cur_color = C_TEXT;
+
         rc_emit(rc, c);
     }
 }
@@ -418,7 +436,9 @@ void editor_draw(int wid) {
         rc.cur_line = 0;
         rc.cur_col = 0;
         rc.cur_color = C_TEXT;
-        if (!is_c_file(current_filename)) draw_syntax(&rc);
+
+
+        if (is_c_file(current_filename)) draw_syntax(&rc);
         else draw_plain(&rc);
     }
 

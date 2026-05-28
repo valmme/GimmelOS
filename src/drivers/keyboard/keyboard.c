@@ -129,6 +129,8 @@ int keyboard_getchar(void) {
 int keyboard_getchar_nonblocking(void) {
     uint8_t status = inb(KBD_STATUS_PORT);
     if (!(status & 0x01)) return 0;
+    if (status & 0x20) return 0;
+
     if (status & 0x20) {
         inb(KBD_DATA_PORT);
         return 0;

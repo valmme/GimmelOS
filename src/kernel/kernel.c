@@ -58,8 +58,6 @@ void gfx_render_frame() {
 
     // wm_create_app("wolfenstein", (rec){50, 50, 400, 300}, (gfx_color_t){30,30,30,255}, game_init, game_update);
     int win =  wm_create_app("Lito Editor", (rec){50, 50, 400, 300}, (gfx_color_t){30,30,30,255}, editor_init, editor_update, editor_draw);
-    wm.windows[win].mouse_capture = 0;
-
 
     uint8_t prev_left = 0;
 
