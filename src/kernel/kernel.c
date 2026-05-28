@@ -56,8 +56,8 @@ void gfx_render_frame() {
     mouse_init();
     wm_init();
 
-    // wm_create_app("wolfenstein", (rec){50, 50, 400, 300}, (gfx_color_t){30,30,30,255}, game_init, game_update);
-    int win =  wm_create_app("Lito Editor", (rec){50, 50, 400, 300}, (gfx_color_t){30,30,30,255}, editor_init, editor_update, editor_draw);
+    wm_create_app("wolfenstein", (rec){50, 50, 400, 300}, (gfx_color_t){30,30,30,255}, game_init, game_update, game_draw);
+    // int win =  wm_create_app("Lito Editor", (rec){50, 50, 400, 300}, (gfx_color_t){30,30,30,255}, editor_init, editor_update, editor_draw);
 
     uint8_t prev_left = 0;
 
@@ -75,18 +75,12 @@ void gfx_render_frame() {
                     int32_t rx = w->bounds.x + (int32_t)w->bounds.w - WM_RESIZE_HIT;
                     int32_t ry = w->bounds.y + (int32_t)w->bounds.h - WM_RESIZE_HIT;
 
-                    int in_resize = mouse.pos.x >= rx &&
-                                    mouse.pos.y >= ry;
+                    int in_resize = mouse.pos.x >= rx && mouse.pos.y >= ry;
 
                     if (!in_resize && w->wants_mouse_capture)
                         w->mouse_capture = 1;
                 }
             }
-        }
-
-        if (!mouse.left) {
-            for (int i = 0; i < wm.count; i++)
-                wm.windows[i].mouse_capture = 0;
         }
 
         prev_left = mouse.left;
