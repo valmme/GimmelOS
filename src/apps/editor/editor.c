@@ -13,7 +13,9 @@
 #define HEADER_H TOOLBAR_H
 
 #define EDITOR_PADDING_X 6
-#define EDITOR_PADDING_Y 4
+#define EDITOR_PADDING_Y 6
+#define EDITOR_LINE_SPACING 2
+#define EDITOR_LINE_HEIGHT (CHAR_H * SCALE + EDITOR_LINE_SPACING)
 
 #define EDITOR_BUF 4096
 #define EDITOR_NAME "Lito"
@@ -27,15 +29,15 @@
 #define C_LINENUM      GFX_GRAY
 #define C_SCROLLBAR_BG GFX_DARK_GRAY
 #define C_SCROLLBAR_FG GFX_GRAY
-#define C_KEYWORD      GFX_PURPLE
-#define C_TYPE         GFX_SKY_BLUE
-#define C_FUNCTION     GFX_GOLD
-#define C_STRING       GFX_LIME
-#define C_NUMBER       GFX_ORANGE
-#define C_MACRO        GFX_MAROON
-#define C_COMMENT      GFX_GRAY
-#define C_CLASS        GFX_PINK
-#define C_PUNCT        GFX_LIGHT_GRAY
+#define C_KEYWORD      (gfx_color_t){198, 120, 221, 255}
+#define C_TYPE         (gfx_color_t){97 , 175, 239, 255}
+#define C_FUNCTION     (gfx_color_t){229, 192, 123, 255}
+#define C_STRING       (gfx_color_t){152, 195, 121, 255}
+#define C_NUMBER       (gfx_color_t){209, 154, 102, 255}
+#define C_MACRO        (gfx_color_t){224, 108, 117, 255}
+#define C_COMMENT      (gfx_color_t){92 , 99 , 112, 255}
+#define C_CLASS        (gfx_color_t){86 , 182, 194, 255}
+#define C_PUNCT        (gfx_color_t){171, 178, 191, 255}
 
 static char buf[EDITOR_BUF];
 static int len = 0;
@@ -174,7 +176,7 @@ static void rc_emit(render_ctx_t *rc, char c) {
     int rel = rc->cur_line - scroll_top;
     if (rel >= 0 && rel < rc->visible_rows) {
         int px = rc->text_x0 + rc->cur_col * CHAR_W * SCALE;
-        int py = HEADER_H + EDITOR_PADDING_Y + rel * CHAR_H * SCALE;
+        int py = HEADER_H + EDITOR_PADDING_Y + rel * EDITOR_LINE_HEIGHT;
         if (px >= rc->text_x0 && px + CHAR_W * SCALE <= rc->canvas_w)
             wm_putchar_ex(c, (vec2){px, py}, rc->cur_color, C_BG, SCALE);
     }
@@ -222,11 +224,13 @@ static void draw_syntax(render_ctx_t *rc) {
                 rc_emit_str(rc, word, w);
                 w = 0;
             }
+
             in_string = !in_string;
             rc->cur_color = C_STRING;
             rc_emit(rc, c);
             continue;
         }
+
         if (in_string) {
             rc->cur_color = C_STRING;
             if (c == '\n') rc_newline(rc);
@@ -241,6 +245,7 @@ static void draw_syntax(render_ctx_t *rc) {
                 rc_emit_str(rc, word, w);
                 w = 0;
             }
+
             in_macro = 1;
         }
         if (in_macro) {
@@ -257,6 +262,7 @@ static void draw_syntax(render_ctx_t *rc) {
                 rc_emit_str(rc, word, w);
                 w = 0;
             }
+
             rc->cur_color = C_CLASS;
             rc_emit(rc, ':'); rc_emit(rc, ':');
             i++;
@@ -276,18 +282,26 @@ static void draw_syntax(render_ctx_t *rc) {
                 color = C_KEYWORD;
                 if (is_type_starter(word)) kstrncpy(prev_word, word, 64);
                 else prev_word[0] = '\0';
-            } else if (prev_word[0] != '\0') {
+            } 
+            
+            else if (prev_word[0] != '\0') {
                 color = C_TYPE;
                 prev_word[0] = '\0';
-            } else if (c == '(') {
+            }
+            
+            else if (c == '(') {
                 color = C_FUNCTION;
-            } else if (c == ' ' || c == '\t') {
+            } 
+            
+            else if (c == ' ' || c == '\t') {
                 int peek = i + 1;
                 while (peek < len && (buf[peek] == ' ' || buf[peek] == '\t')) peek++;
                 char nc = (peek < len) ? buf[peek] : 0;
+
                 if ((nc >= 'a' && nc <= 'z') || (nc >= 'A' && nc <= 'Z') || nc == '_')
                     color = C_TYPE;
             }
+
             rc->cur_color = color;
             rc_emit_str(rc, word, w);
             w = 0;
@@ -323,7 +337,7 @@ void editor_draw(int wid) {
     int total_lines = count_total_lines();
     int linenum_w = (digits(total_lines) + 1) * CHAR_W * SCALE + EDITOR_PADDING_X * 2;
 
-    int visible_rows = (ch - HEADER_H - STATUSBAR_H) / (CHAR_H * SCALE);
+    int visible_rows = (ch - HEADER_H - STATUSBAR_H) / (EDITOR_LINE_HEIGHT + EDITOR_LINE_SPACING);
     if (visible_rows < 1) visible_rows = 1;
 
     int cursor_line, cursor_col;
@@ -332,28 +346,33 @@ void editor_draw(int wid) {
     wm_begin_draw(wid);
 
     wm_draw_fill_rec((rec){0, 0, cw, ch}, C_BG);
-
     wm_draw_fill_rec((rec){0, 0, cw, TOOLBAR_H}, C_TOOLBAR);
+
     {
-        int ty = (TOOLBAR_H - CHAR_H * SCALE) / 2;
+        int ty = (TOOLBAR_H - EDITOR_LINE_HEIGHT) / 2;
         wm_draw_text_ex(EDITOR_NAME "  |  ^S Save", (vec2){EDITOR_PADDING_X, ty}, C_TEXT, C_TOOLBAR, SCALE);
+
         const char *lang = is_c_file(current_filename) ? "C/C++" : "Plain";
         int lw = kstrlen(lang) * CHAR_W * SCALE;
         wm_draw_text_ex(lang, (vec2){cw - lw - EDITOR_PADDING_X, ty}, C_LINENUM, C_TOOLBAR, SCALE);
     }
 
     wm_draw_fill_rec((rec){0, ch - STATUSBAR_H, cw, STATUSBAR_H}, C_STATUSBAR);
+
     {
-        int sy = ch - STATUSBAR_H + (STATUSBAR_H - CHAR_H * SCALE) / 2;
+        int sy = ch - STATUSBAR_H + (STATUSBAR_H - EDITOR_LINE_HEIGHT) / 2;
         char lc[32];
         int li = 0;
         lc[li++] = 'L'; lc[li++] = 'n'; lc[li++] = ' ';
+
         { char rev[12]; int ri = 0, x = cursor_line + 1; while (x > 0) { rev[ri++] = '0' + x % 10; x /= 10; } for (int k = ri - 1; k >= 0; k--) lc[li++] = rev[k]; }
         lc[li++] = ' '; lc[li++] = ' ';
         lc[li++] = 'C'; lc[li++] = 'o'; lc[li++] = 'l'; lc[li++] = ' ';
+
         { char rev[12]; int ri = 0, x = cursor_col + 1; while (x > 0) { rev[ri++] = '0' + x % 10; x /= 10; } for (int k = ri - 1; k >= 0; k--) lc[li++] = rev[k]; }
         lc[li] = 0;
         int lcw = kstrlen(lc) * CHAR_W * SCALE;
+
         wm_draw_text_ex(lc, (vec2){cw - lcw - EDITOR_PADDING_X, sy}, C_LINENUM, C_STATUSBAR, SCALE);
         wm_draw_text_ex(current_filename, (vec2){EDITOR_PADDING_X, sy}, C_TEXT, C_STATUSBAR, SCALE);
     }
@@ -361,6 +380,7 @@ void editor_draw(int wid) {
     int sb_x = cw - 6;
     int sb_y0 = HEADER_H + 1;
     int sb_h = ch - HEADER_H - STATUSBAR_H - 1;
+
     wm_draw_fill_rec((rec){sb_x, sb_y0, 6, sb_h}, C_SCROLLBAR_BG);
     if (total_lines > visible_rows) {
         int thumb_h = sb_h * visible_rows / total_lines;
@@ -375,15 +395,15 @@ void editor_draw(int wid) {
     {
         int rel = cursor_line - scroll_top;
         if (rel >= 0 && rel < visible_rows) {
-            int hy = HEADER_H + EDITOR_PADDING_Y + rel * CHAR_H * SCALE;
-            wm_draw_fill_rec((rec){linenum_w + 1, hy, sb_x - linenum_w - 1, CHAR_H * SCALE}, C_CURSOR_LINE);
+            int hy = HEADER_H + EDITOR_PADDING_Y + rel * EDITOR_LINE_HEIGHT;
+            wm_draw_fill_rec((rec){linenum_w + 1, hy, sb_x - linenum_w - 1, EDITOR_LINE_HEIGHT}, C_CURSOR_LINE);
         }
     }
 
     for (int r = 0; r < visible_rows; r++) {
         int abs_line = scroll_top + r;
         if (abs_line >= total_lines) break;
-        int py = HEADER_H + EDITOR_PADDING_Y + r * CHAR_H * SCALE;
+        int py = HEADER_H + EDITOR_PADDING_Y + r * EDITOR_LINE_HEIGHT;
         gfx_color_t fg = (abs_line == cursor_line) ? C_TEXT : C_LINENUM;
         int num_digits = digits(abs_line + 1);
         int px = linenum_w - EDITOR_PADDING_X - num_digits * CHAR_W * SCALE;
@@ -406,8 +426,8 @@ void editor_draw(int wid) {
         int rel = cursor_line - scroll_top;
         if (rel >= 0 && rel < visible_rows) {
             int cx = linenum_w + EDITOR_PADDING_X + 1 + cursor_col * CHAR_W * SCALE;
-            int cy = HEADER_H + EDITOR_PADDING_Y + rel * CHAR_H * SCALE;
-            wm_draw_fill_rec((rec){cx, cy, 2, CHAR_H * SCALE}, C_CURSOR);
+            int cy = HEADER_H + EDITOR_PADDING_Y + rel * EDITOR_LINE_HEIGHT;
+            wm_draw_fill_rec((rec){cx, cy, 2, EDITOR_LINE_HEIGHT}, C_CURSOR);
         }
     }
 
@@ -416,7 +436,7 @@ void editor_draw(int wid) {
 
 static int get_visible_rows(int wid) {
     wm_canvas_t canvas = wm_get_canvas(wid);
-    int rows = (canvas.h - HEADER_H - STATUSBAR_H) / (CHAR_H * SCALE);
+    int rows = (canvas.h - HEADER_H - STATUSBAR_H) / (EDITOR_LINE_HEIGHT);
     return rows < 1 ? 1 : rows;
 }
 

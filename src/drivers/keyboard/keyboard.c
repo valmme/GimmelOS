@@ -152,8 +152,6 @@ int keyboard_getchar_nonblocking(void) {
         return 0;
     }
 
-    if (sc & 0x80) return 0;
-
     int r = process_scancode(sc);
     return (r >= 0) ? r : 0;
 }
