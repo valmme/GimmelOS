@@ -54,6 +54,7 @@ typedef struct {
     uint8_t dragging;
     uint8_t resizing;
     uint8_t mouse_capture;
+    uint8_t wants_mouse_capture;
 
     void* user_data;
 

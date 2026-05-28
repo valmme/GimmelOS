@@ -63,8 +63,6 @@ void gfx_render_frame() {
 
     uint8_t prev_left = 0;
 
-    game_init();
-
     while (1) {
         mouse_poll();
         wm_handle_mouse(mouse.pos, mouse.left);
@@ -79,14 +77,20 @@ void gfx_render_frame() {
                     int32_t rx = w->bounds.x + (int32_t)w->bounds.w - WM_RESIZE_HIT;
                     int32_t ry = w->bounds.y + (int32_t)w->bounds.h - WM_RESIZE_HIT;
 
-                    int in_resize = mouse.pos.x >= rx && mouse.pos.y >= ry;
+                    int in_resize = mouse.pos.x >= rx &&
+                                    mouse.pos.y >= ry;
 
-                    if (!in_resize)
+                    if (!in_resize && w->wants_mouse_capture)
                         w->mouse_capture = 1;
                 }
             }
         }
-        
+
+        if (!mouse.left) {
+            for (int i = 0; i < wm.count; i++)
+                wm.windows[i].mouse_capture = 0;
+        }
+
         prev_left = mouse.left;
 
         gfx_begin_frame(GFX_DARK_BLUE);
