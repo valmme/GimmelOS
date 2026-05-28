@@ -1,6 +1,11 @@
 #include "keyboard.h"
 #include "kernel/cpu/io.h"
-#include "lib/types.h"
+
+#define KBD_QUEUE_SIZE 32
+
+static uint8_t kbd_queue[KBD_QUEUE_SIZE];
+static int kbd_q_head = 0;
+static int kbd_q_tail = 0;
 
 static const char sc_ascii[128] = {
     0,   27,  '1', '2', '3', '4', '5', '6', '7', '8',
@@ -126,17 +131,20 @@ int keyboard_getchar(void) {
     }
 }
 
-int keyboard_getchar_nonblocking(void) {
-    uint8_t status = inb(KBD_STATUS_PORT);
-    if (!(status & 0x01)) return 0;
-    if (status & 0x20) return 0;
+void keyboard_push_scancode(uint8_t sc) {
+    int next = (kbd_q_tail + 1) % KBD_QUEUE_SIZE;
 
-    if (status & 0x20) {
-        inb(KBD_DATA_PORT);
-        return 0;
+    if (next != kbd_q_head) {
+        kbd_queue[kbd_q_tail] = sc;
+        kbd_q_tail = next;
     }
+}
 
-    uint8_t sc = inb(KBD_DATA_PORT);
+int keyboard_getchar_nonblocking(void) {
+    if (kbd_q_head == kbd_q_tail) return 0;
+
+    uint8_t sc = kbd_queue[kbd_q_head];
+    kbd_q_head = (kbd_q_head + 1) % KBD_QUEUE_SIZE;
 
     if (sc == 0xE0) {
         kbd_pending_e0 = 1;

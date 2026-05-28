@@ -22,4 +22,4 @@ typedef struct {
 extern mouse_state_t mouse;
 
 void mouse_init(void);
-void mouse_poll(void);
+void io_poll(void);

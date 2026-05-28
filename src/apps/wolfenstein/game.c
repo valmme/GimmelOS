@@ -154,9 +154,7 @@ static ray_hit_t dda_ray(float px, float py, float dx, float dy) {
 
 void game_update(int wid) {
     wm_begin_draw(wid);
-
-    mouse_poll();
-
+    
     extern mouse_state_t mouse;
     extern wm_t wm; 
 

@@ -1,4 +1,5 @@
 #pragma once
+#include "lib/types.h"
 
 #define KBD_DATA_PORT   0x60
 #define KBD_STATUS_PORT 0x64
@@ -23,3 +24,4 @@ int keyboard_getchar(void);
 int keyboard_haskey(void);
 void keyboard_handler(void);
 int keyboard_getchar_nonblocking(void);
+void keyboard_push_scancode(uint8_t sc);

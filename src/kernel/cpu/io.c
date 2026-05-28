@@ -1,5 +1,15 @@
 #include "io.h"
+#include "drivers/keyboard/keyboard.h"
 #include "gfx/gfx.h"
+
+#define MOUSE_QUEUE 16
+
+static uint8_t mouse_buf[3];
+static int mouse_buf_pos = 0;
+
+static vec2 pending_vec = {0, 0};
+static uint8_t pending_flags = 0;
+static int mouse_ready = 0;
 
 mouse_state_t mouse = {0};
 
@@ -72,51 +82,41 @@ void mouse_init(void) {
     mouse.pos.y = 300;
 }
 
-void mouse_poll(void) {
-    uint8_t status = inb(0x64);
+void io_poll(void) {
+    uint8_t status;
 
-    if (!(status & 0x01)) return;
-    if (!(status & 0x20)) return;
+    while ((status = inb(0x64)) & 0x01) {
+        uint8_t data = inb(0x60);
 
-    uint8_t flags = inb(0x60);
+        if (status & 0x20) {
+            mouse_buf[mouse_buf_pos++] = data;
 
-    if (!(flags & 0x08))
-        return;
+            if (mouse_buf_pos == 1 && !(data & 0x08))
+                mouse_buf_pos = 0;
 
-    while (1) {
-        status = inb(0x64);
+            if (mouse_buf_pos == 3) {
+                uint8_t flags = mouse_buf[0];
 
-        if (!(status & 0x01)) return;
-        if (status & 0x20) break;
+                if (!(flags & 0x40) && !(flags & 0x80)) {
+                    mouse.left   = (flags & 0x01) != 0;
+                    mouse.right  = (flags & 0x02) != 0;
+                    mouse.middle = (flags & 0x04) != 0;
+
+                    mouse.pos.x += (int32_t)(int8_t)mouse_buf[1];
+                    mouse.pos.y -= (int32_t)(int8_t)mouse_buf[2];
+
+                    if (mouse.pos.x < 0) mouse.pos.x = 0;
+                    if (mouse.pos.y < 0) mouse.pos.y = 0;
+                    if ((uint32_t)mouse.pos.x >= width)  mouse.pos.x = width  - 1;
+                    if ((uint32_t)mouse.pos.y >= height) mouse.pos.y = height - 1;
+                }
+
+                mouse_buf_pos = 0;
+            }
+        } 
+        
+        else {
+            keyboard_push_scancode(data);
+        }
     }
-
-    int32_t dx = (int32_t)(int8_t)inb(0x60);
-
-    while (1) {
-        status = inb(0x64);
-
-        if (!(status & 0x01)) return;
-        if (status & 0x20) break;
-    }
-
-    int32_t dy = (int32_t)(int8_t)inb(0x60);
-
-    if (flags & 0x40 || flags & 0x80)
-        return;
-
-    mouse.left   = (flags & 0x01) != 0;
-    mouse.right  = (flags & 0x02) != 0;
-    mouse.middle = (flags & 0x04) != 0;
-
-    mouse.delta.x = dx;
-    mouse.delta.y = -dy;
-
-    mouse.pos.x += dx;
-    mouse.pos.y -= dy;
-
-    if (mouse.pos.x < 0) mouse.pos.x = 0;
-    if (mouse.pos.y < 0) mouse.pos.y = 0;
-
-    if ((uint32_t)mouse.pos.x >= width) mouse.pos.x = width - 1;
-    if ((uint32_t)mouse.pos.y >= height) mouse.pos.y = height - 1;
 }

@@ -62,7 +62,7 @@ void gfx_render_frame() {
     uint8_t prev_left = 0;
 
     while (1) {
-        mouse_poll();
+        io_poll();
         wm_handle_mouse(mouse.pos, mouse.left);
 
         if (mouse.left && !prev_left) {
