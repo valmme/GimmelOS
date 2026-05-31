@@ -268,3 +268,24 @@ void fs_get_path(int id, char *out, size_t maxlen) {
     if (pos == 0 && maxlen > 0) out[pos++] = '/';
     out[pos] = '\0';
 }
+
+void fs_list_names(uint32_t parent, char names[][FS_MAX_NAME], int* count) {
+    *count = 0;
+
+    for (int i = 0; i < FS_MAX_INODES; i++) {
+        if (!inodes[i].used || inodes[i].parent != parent) continue;
+        kstrncpy(names[*count], inodes[i].name, FS_MAX_NAME);
+
+        if (inodes[i].is_dir) {
+            int nlen = kstrlen(names[*count]);
+            
+            if (nlen < FS_MAX_NAME - 1) {
+                names[*count][nlen]     = '/';
+                names[*count][nlen + 1] = '\0';
+            }
+        }
+
+        (*count)++;
+        if (*count >= 32) break;
+    }
+}

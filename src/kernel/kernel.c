@@ -8,6 +8,7 @@
 
 #include "apps/wolfenstein/game.h"
 #include "apps/editor/editor.h"
+#include "apps/shell/shell.h"
 
 void shell_run(void);
 
@@ -56,8 +57,7 @@ void gfx_render_frame() {
     mouse_init();
     wm_init();
 
-    wm_create_app("wolfenstein", (rec){50, 50, 400, 300}, (gfx_color_t){30,30,30,255}, game_init, game_update, game_draw);
-    // int win =  wm_create_app("Lito Editor", (rec){50, 50, 400, 300}, (gfx_color_t){30,30,30,255}, editor_init, editor_update, editor_draw);
+    wm_create_app("Shell", (rec){50, 50, 100, 100}, GFX_BLACK, shell_init, shell_update, shell_draw);
 
     uint8_t prev_left = 0;
 

@@ -24,6 +24,7 @@ void fs_init();
 int fs_read(const char* name, uint32_t parent, uint8_t* out);
 int fs_write(const char* name, uint32_t parent, uint8_t* data, uint32_t size);
 void fs_list(uint32_t parent);
+void fs_list_names(uint32_t parent, char names[][FS_MAX_NAME], int* count);
 int fs_mkdir(const char* name, uint32_t parent);
 int fs_mk(const char* name, uint32_t parent);
 int fs_rm(const char* name, uint32_t parent);

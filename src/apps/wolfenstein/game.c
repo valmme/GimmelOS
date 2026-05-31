@@ -29,7 +29,7 @@ typedef struct { float dist, hit_x; int side; } ray_hit_t;
 
 static player_t p = {3.5f, 3.5f, 0};
 static int key_w, key_s, key_a, key_d, key_esc;
-int lines = 4;
+int lines = 2;
 
 void game_init(int wid) {
     (void)wid;
@@ -196,7 +196,7 @@ void game_draw(int wid) {
                 255
             };
 
-            for (int lx = 0; lx < lines; lx++)
+            for (int lx = 0; lx < lines; lx += lines)
                 wm_draw_pixel((vec2){x + lx, y}, c);
         }
     }
