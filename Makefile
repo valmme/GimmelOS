@@ -10,7 +10,7 @@ KERNEL  = $(ISO_DIR)/boot/gimmelos.bin
 ISO     = build/gimmelos.iso
 
 CFLAGS = -m32 -ffreestanding -fno-stack-protector -fno-pic \
-         -nostdlib -nostdinc -Wall -Wextra -O2 -std=c11 -Isrc \
+         -nostdlib -nostdinc -Wall -Wextra -O2 -std=c11 -Iinclude \
          -Wno-misleading-indentation -Wno-implicit-function-declaration \
          -Wno-int-conversion -Wno-address-of-packed-member
 

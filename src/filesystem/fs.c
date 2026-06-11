@@ -1,7 +1,7 @@
 #include "fs.h"
 #include "drivers/ata/ata.h"
+#include "drivers/serial.h"
 #include "lib/kstring.h"
-#include "drivers/vga/vga.h"
 
 static inode_t inodes[FS_MAX_INODES];
 static uint8_t bitmap[FS_MAX_BLOCKS / 8];
@@ -29,7 +29,7 @@ void fs_init() {
     superblock_t* sb = (superblock_t*)buf;
 
     if (sb->magic[0] != 'M') {
-        vga_info("Formatting disk...");
+        serial_print("Formatting disk...");
         superblock_t new_sb = { "MINISF", 0 };
         ata_write28(0, (uint8_t*)&new_sb);
 
@@ -171,19 +171,6 @@ int fs_rmdir_by_id(int id) {
     kmemset(&inodes[id], 0, sizeof(inode_t));
     ata_write28(1, (uint8_t*)inodes);
     return 1;
-}
-
-void fs_list(uint32_t parent) {
-    for (int i = 0; i < FS_MAX_INODES; i++) {
-        if (inodes[i].used && inodes[i].parent == parent) {
-            vga_set_color(VGA_WHITE, VGA_BLACK);
-            vga_print(inodes[i].name);
-            if (inodes[i].is_dir) vga_println("/");
-            else vga_putchar('\n');
-        }
-    }
-
-    vga_set_color(VGA_LIGHT_GREY, VGA_BLACK);
 }
 
 int fs_find_in(const char *name, uint32_t parent) {

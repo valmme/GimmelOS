@@ -1,5 +1,5 @@
-#include "io.h"
-#include "drivers/keyboard/keyboard.h"
+#include "kernel/cpu/io.h"
+#include "drivers/keyboard.h"
 #include "gfx/gfx.h"
 
 #define MOUSE_QUEUE 16

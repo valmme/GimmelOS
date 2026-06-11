@@ -1,8 +1,7 @@
 #pragma once
 #include "kernel/cpu/io.h"
-#include "drivers/vga/vga.h"
 #include "lib/types.h"
-#include "ui/wm.h"
+#include "wm.h"
 
 #define FB_CHAR_W 8
 #define FB_CHAR_H 8
@@ -82,7 +81,6 @@ uint8_t reverse_bits(uint8_t b);
 void gfx_init(vec2 res, uint32_t p, uint32_t* fb);
 
 // basic
-gfx_color_t gfx_from_vga(vga_color_t c);
 void gfx_begin_frame(gfx_color_t color);
 void gfx_end_frame(void);
 void gfx_put_pixel(uint32_t x, uint32_t y, gfx_color_t color);

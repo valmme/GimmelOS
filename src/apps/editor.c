@@ -1,8 +1,8 @@
-#include "gfx/ui/wm.h"
-#include "drivers/keyboard/keyboard.h"
-#include "filesystem/fs.h"
+#include "gfx/wm.h"
+#include "drivers/keyboard.h"
+#include "fs.h"
 #include "lib/kstring.h"
-#include "editor.h"
+#include "apps/editor.h"
 
 #define CHAR_W 8
 #define CHAR_H 8

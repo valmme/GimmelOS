@@ -1,8 +1,7 @@
 #pragma once
 #include "types.h"
-#include "filesystem/fs.h"
+#include "fs.h"
 #include "kstring.h"
-#include "drivers/vga/vga.h"
 #define PATH_MAX 512
 
 extern int32_t cwd_inode;

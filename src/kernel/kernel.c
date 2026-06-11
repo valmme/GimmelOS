@@ -1,20 +1,18 @@
-#include "cpu/io.h"
+#include "kernel/cpu/io.h"
 #include "gfx/gfx.h"
 #include "drivers/serial.h"
 
-#include "drivers/vga/vga.h"
-#include "drivers/keyboard/keyboard.h"
-#include "filesystem/fs.h"
+#include "drivers/keyboard.h"
+#include "fs.h"
 
-#include "apps/wolfenstein/game.h"
-#include "apps/editor/editor.h"
-#include "apps/shell/shell.h"
+#include "apps/game/game.h"
+#include "apps/shell.h"
 
 void shell_run(void);
 
 void panic(const char* msg) {
-    vga_error("--- KERNEL PANIC ---");
-    vga_error(msg);
+    serial_print("--- KERNEL PANIC ---");
+    serial_print(msg);
     halt();
 }
 

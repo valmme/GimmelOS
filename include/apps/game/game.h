@@ -1,7 +1,7 @@
 #pragma once
 
-#include "gfx/ui/wm.h"
-#include "drivers/keyboard/keyboard.h"
+#include "gfx/wm.h"
+#include "drivers/keyboard.h"
 #include "lib/math.h"
 
 void game_init(int wid);

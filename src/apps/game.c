@@ -1,11 +1,9 @@
 #include "lib/types.h"
 #include "lib/kstring.h"
-#include "gfx/ui/wm.h"
 #include "gfx/gfx.h"
-#include "textures.h"
-#include "drivers/keyboard/keyboard.h"
+#include "apps/game/textures.h"
 #include "kernel/cpu/io.h"
-#include "game.h"
+#include "apps/game/game.h"
 
 #define MAP_W 8
 #define MAP_H 8

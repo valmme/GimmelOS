@@ -1,5 +1,5 @@
-#include "gfx.h"
-#include "icons.h"
+#include "gfx/gfx.h"
+#include "gfx/icons.h"
 #include "kernel/cpu/io.h"
 
 uint32_t* framebuffer;
@@ -20,16 +20,6 @@ const uint32_t vga_palette[16] = {
 };
 
 static uint32_t* backbuffer = 0;
-
-gfx_color_t gfx_from_vga(vga_color_t c) {
-    uint32_t rgb = vga_palette[c];
-    return (gfx_color_t){
-        .r = (rgb >> 16) & 0xFF,
-        .g = (rgb >> 8)  & 0xFF,
-        .b =  rgb        & 0xFF,
-        .a =               0xFF
-    };
-}
 
 void gfx_init(vec2 res, uint32_t p, uint32_t* fb) {
     width = res.x;

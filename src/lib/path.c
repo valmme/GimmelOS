@@ -1,4 +1,4 @@
-#include "path.h"
+#include "lib/path.h"
 
 int32_t cwd_inode = 0;
 char cwd_path[PATH_MAX] = "/";

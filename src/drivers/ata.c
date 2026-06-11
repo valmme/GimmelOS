@@ -1,6 +1,6 @@
-#include "ata.h"
+#include "drivers/ata/ata.h"
+#include "drivers/serial.h"
 #include "kernel/cpu/io.h"
-#include "../vga/vga.h"
 
 static int ata_wait(uint8_t set_mask, uint8_t clear_mask) {
     for (int i = 0; i < 1000000; i++) {
@@ -28,7 +28,7 @@ void ata_read28(uint32_t lba, uint8_t *buf) {
     outb(ATA_CMD, ATA_CMD_READ);
  
     if (ata_wait(ATA_SR_DRQ, ATA_SR_BSY) != 1) {
-        vga_error("ATA read failed");
+        serial_print("ATA read failed");
         return;
     }
  
@@ -41,7 +41,7 @@ void ata_write28(uint32_t lba, uint8_t *buf) {
     outb(ATA_CMD, ATA_CMD_WRITE);
  
     if (ata_wait(ATA_SR_DRQ, ATA_SR_BSY) != 1) {
-        vga_error("ATA write failed");
+        serial_print("ATA write failed");
         return;
     }
  
@@ -63,23 +63,23 @@ void detect_disk(void) {
     outb(ATA_CMD, ATA_CMD_IDENTIFY);
 
     uint8_t status = inb(ATA_STATUS);
-    if (status == 0x00) { vga_error("ATA: no drive present"); return; }
+    if (status == 0x00) { serial_print("ATA: no drive present"); return; }
 
     int timeout = 1000000;
     while (--timeout) {
         status = inb(ATA_STATUS);
         if (!(status & ATA_SR_BSY)) break;
     }
-    if (!timeout) { vga_error("ATA: no response"); return; }
+    if (!timeout) { serial_print("ATA: no response"); return; }
 
     if (inb(ATA_LBA_MID) != 0 || inb(ATA_LBA_HI) != 0) {
-        vga_warn("ATA: ATAPI device, skipping");
+        serial_print("ATA: ATAPI device, skipping");
         return;
     }
 
     while (1) {
         status = inb(ATA_STATUS);
-        if (status & ATA_SR_ERR) { vga_error("ATA: IDENTIFY error"); return; }
+        if (status & ATA_SR_ERR) { serial_print("ATA: IDENTIFY error"); return; }
         if (status & ATA_SR_DRQ) break;
     }
 
@@ -87,5 +87,5 @@ void detect_disk(void) {
     for (int i = 0; i < 256; i++) id[i] = inw(ATA_DATA);
     (void)id;
 
-    vga_info("Disk found");
+    serial_print("Disk found");
 }

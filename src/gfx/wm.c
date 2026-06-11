@@ -1,4 +1,4 @@
-#include "wm.h"
+#include "gfx/wm.h"
 #include "lib/kstring.h"
 #include "lib/math.h"
 
