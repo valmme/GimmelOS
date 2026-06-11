@@ -91,8 +91,10 @@ void gfx_render_frame() {
             if (!w->visible || w->minimized)
                 continue;
 
-            if (w->on_update)
+            if (w->on_update) {
+                keyboard_set_enabled(i == wm.focused);
                 w->on_update(i);
+            }
         }
 
         wm_draw_all();

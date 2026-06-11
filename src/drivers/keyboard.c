@@ -4,8 +4,9 @@
 #define KBD_QUEUE_SIZE 32
 
 static uint8_t kbd_queue[KBD_QUEUE_SIZE];
-static int kbd_q_head = 0;
-static int kbd_q_tail = 0;
+static int kbd_q_head  = 0;
+static int kbd_q_tail  = 0;
+static int kbd_enabled = 1;
 
 static const char sc_ascii[128] = {
     0,   27,  '1', '2', '3', '4', '5', '6', '7', '8',
@@ -140,7 +141,12 @@ void keyboard_push_scancode(uint8_t sc) {
     }
 }
 
+void keyboard_set_enabled(int e) {
+    kbd_enabled = e;
+}
+
 int keyboard_getchar_nonblocking(void) {
+    if (!kbd_enabled) return 0;
     if (kbd_q_head == kbd_q_tail) return 0;
 
     uint8_t sc = kbd_queue[kbd_q_head];
