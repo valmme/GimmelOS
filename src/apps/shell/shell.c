@@ -3,6 +3,8 @@
 #include "drivers/keyboard/keyboard.h"
 #include "filesystem/fs.h"
 #include "lib/kstring.h"
+
+#include "apps/wolfenstein/game.h"
 #include "apps/editor/editor.h"
 
 #define CHAR_W     8
@@ -86,11 +88,24 @@ static void cpuid_call(uint32_t code, uint32_t* a, uint32_t* b, uint32_t* c, uin
 
 static void cmd_help(void) {
     sp("Commands:");
-    sp("  help   clear  echo   info   pwd");
-    sp("  ls     cd     cat    wr     run");
-    sp("  mk     mkdir  rm     rmdir");
-    sp("  lito [path]  - open editor");
-    sp("  reboot  halt");
+    sp(" - help");
+    sp(" - clear");
+    sp(" - echo");
+    sp(" - info");
+    sp(" - pwd");
+    sp(" - ls");
+    sp(" - cd");
+    sp(" - cat");
+    sp(" - wr");
+    sp(" - run");
+    sp(" - mk");
+    sp(" - mkdir");
+    sp(" - rm");
+    sp(" - rmdir");
+    sp(" - lito [path]  - open editor");
+    sp(" - wolfenstein (open the game)");
+    sp(" - reboot");
+    sp(" - halt");
 }
 
 static void cmd_cd(const char* args) {
@@ -224,6 +239,10 @@ static void cmd_lito(const char* args) {
     editor_open(fname);
 }
 
+static void cmd_wolfenstein(void) {
+    wm_create_app("Wolfenstein", (rec){50, 50, 50, 50}, GFX_BLACK, game_init, game_update, game_draw);
+}
+
 static void run_gim(const char* args) {
     if (!args || !args[0]) { spe("run: missing path"); return; }
 
@@ -272,22 +291,23 @@ static void read_command(const char* input) {
     kstrncpy(echo + ei, input, LINE_BUF_W - ei);
     push_line(echo, C_PROMPT);
 
-    if      (CMD_IS("help"))   cmd_help();
-    else if (CMD_IS("clear"))  { line_count = 0; scroll_top = 0; }
-    else if (CMD_IS("echo"))   sp(args);
-    else if (CMD_IS("info"))   cmd_info();
-    else if (CMD_IS("pwd"))    sp(cwd_path);
-    else if (CMD_IS("reboot")) reboot();
-    else if (CMD_IS("halt"))   { sp("Halting."); __asm__ volatile("cli;hlt"); }
-    else if (CMD_IS("ls"))     cmd_ls(args);
-    else if (CMD_IS("cd"))     cmd_cd(args);
-    else if (CMD_IS("lito"))   cmd_lito(args);
-    else if (CMD_IS("mkdir"))  cmd_mkdir(args);
-    else if (CMD_IS("mk"))     cmd_mk(args);
-    else if (CMD_IS("rm"))     cmd_rm(args);
-    else if (CMD_IS("rmdir"))  cmd_rmdir(args);
-    else if (CMD_IS("cat"))    cmd_cat(args);
-    else if (CMD_IS("run"))    run_gim(args);
+    if      (CMD_IS("help"))        cmd_help();
+    else if (CMD_IS("clear"))       { line_count = 0; scroll_top = 0; }
+    else if (CMD_IS("echo"))        sp(args);
+    else if (CMD_IS("info"))        cmd_info();
+    else if (CMD_IS("pwd"))         sp(cwd_path);
+    else if (CMD_IS("reboot"))      reboot();
+    else if (CMD_IS("halt"))        { sp("Halting."); __asm__ volatile("cli;hlt"); }
+    else if (CMD_IS("ls"))          cmd_ls(args);
+    else if (CMD_IS("cd"))          cmd_cd(args);
+    else if (CMD_IS("lito"))        cmd_lito(args);
+    else if (CMD_IS("mkdir"))       cmd_mkdir(args);
+    else if (CMD_IS("mk"))          cmd_mk(args);
+    else if (CMD_IS("rm"))          cmd_rm(args);
+    else if (CMD_IS("rmdir"))       cmd_rmdir(args);
+    else if (CMD_IS("cat"))         cmd_cat(args);
+    else if (CMD_IS("run"))         run_gim(args);
+    else if (CMD_IS("wolfenstein")) cmd_wolfenstein();
     else {
         char tmp[LINE_BUF_W];
         kstrncpy(tmp, "Unknown: ", LINE_BUF_W);
