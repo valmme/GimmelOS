@@ -1,4 +1,5 @@
-#pragma once 
+#ifndef GOS_KSTRING_H
+#define GOS_KSTRING_H
 
 static inline size_t kstrlen(const char* s) {
     size_t n = 0;
@@ -86,3 +87,5 @@ static inline void* kmemcpy(void* dest, const void* src, unsigned int n) {
 
     return dest;
 }
+
+#endif // GOS_KSTRING_H

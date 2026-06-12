@@ -1,4 +1,6 @@
-#pragma once
+#ifndef GOS_KEYBOARD_H
+#define GOS_KEYBOARD_H
+
 #include "lib/types.h"
 
 #define KBD_DATA_PORT   0x60
@@ -25,3 +27,5 @@ int keyboard_haskey(void);
 void keyboard_handler(void);
 int keyboard_getchar_nonblocking(void);
 void keyboard_push_scancode(uint8_t sc);
+
+#endif // GOS_KEYBOARD_H

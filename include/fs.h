@@ -1,4 +1,6 @@
-#pragma once
+#ifndef GOS_FILESYSTEM_H
+#define GOS_FILESYSTEM_H
+
 #include "lib/types.h"
 
 #define FS_MAX_INODES 128
@@ -39,3 +41,5 @@ int fs_rm_by_id(int id);
 int fs_rmdir_by_id(int id);
 void fs_split_path(const char* path, char* dir_out, char* name_out);
 void fs_get_path(int id, char* out, size_t maxlen);
+
+#endif // GOS_FILESYSTEM_H

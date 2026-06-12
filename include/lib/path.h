@@ -1,4 +1,6 @@
-#pragma once
+#ifndef GOS_PATH_H
+#define GOS_PATH_H
+
 #include "types.h"
 #include "fs.h"
 #include "kstring.h"
@@ -10,3 +12,5 @@ extern char cwd_path[PATH_MAX];
 void path_push(char* path, const char* seg);
 void path_pop(char* path);
 int resolve_path(const char* path);
+
+#endif // GOS_MATH_H

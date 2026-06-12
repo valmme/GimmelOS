@@ -1,4 +1,6 @@
-#pragma once
+#ifndef GOS_ELF_H
+#define GOS_ELF_H
+
 #include "filesystem/fs.h"
 #include "ata.h"
 
@@ -70,3 +72,5 @@ static inline int load_and_run(const char* path) {
     
     return 0;
 }
+
+#endif // GOS_ATA_H

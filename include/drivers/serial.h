@@ -1,4 +1,6 @@
-#pragma once
+#ifndef GOS_SERIAL_H
+#define GOS_SERIAL_H
+
 #include "kernel/cpu/io.h"
 
 static void serial_init(void) {
@@ -33,3 +35,5 @@ static void serial_print_hex(uint32_t v) {
     for (int i = 7; i >= 0; i--)
         serial_putchar(hex[(v >> (i * 4)) & 0xF]);
 }
+
+#endif // GOS_SERIAL_H

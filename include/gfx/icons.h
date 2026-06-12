@@ -1,4 +1,6 @@
-#pragma once
+#ifndef GOS_ICONS_H
+#define GOS_ICONS_H
+
 #include "lib/types.h"
 
 // CURSOR
@@ -17,3 +19,5 @@ static const uint32_t cursor_bitmap[8] = {
 };
 
 static inline uint32_t cursor_bg[CURSOR_W * CURSOR_H];
+
+#endif // GOS_ICONS_H

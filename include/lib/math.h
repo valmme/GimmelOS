@@ -1,5 +1,7 @@
+#ifndef GOS_MATH_H
+#define GOS_MATH_H
+
 #include "types.h"
-#pragma once
 
 #define PI 3.14159265358979323846f
 #define TWO_PI (2.0f * PI)
@@ -106,3 +108,5 @@ static inline int distance(vec2 a, vec2 b) {
 
     return sqrtf(dx * dx + dy * dy);
 }
+
+#endif // GOS_MATH_H

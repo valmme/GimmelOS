@@ -1,4 +1,6 @@
-#pragma once
+#ifndef GOS_ATA_H
+#define GOS_ATA_H
+
 #include "lib/types.h"
 
 #define ATA_DATA         0x1F0
@@ -25,3 +27,5 @@ void ata_read28(uint32_t lba, uint8_t* buf);
 void ata_write28(uint32_t lba, uint8_t* buf);
 void ata_init(void);
 void detect_disk();
+
+#endif // GOS_ATA_H

@@ -1,4 +1,6 @@
-#pragma once
+#ifndef GOS_IO_H
+#define GOS_IO_H
+
 #include "lib/types.h"
 
 // asm
@@ -23,3 +25,5 @@ extern mouse_state_t mouse;
 
 void mouse_init(void);
 void io_poll(void);
+
+#endif // GOS_IO_H

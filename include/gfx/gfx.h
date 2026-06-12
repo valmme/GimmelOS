@@ -1,4 +1,6 @@
-#pragma once
+#ifndef GOS_GFX_H
+#define GOS_GFX_H
+
 #include "kernel/cpu/io.h"
 #include "lib/types.h"
 #include "wm.h"
@@ -103,3 +105,5 @@ void gfx_draw_texture(const uint32_t* tex, vec2 pos, vec2 size);
 void gfx_set_clip(rec r);
 void gfx_reset_clip(void);
 void gfx_put_pixel_clipped(vec2 pos, gfx_color_t color);
+
+#endif // GOS_GFX_H
