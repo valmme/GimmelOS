@@ -6,6 +6,7 @@
 
 #include "apps/game/game.h"
 #include "apps/editor.h"
+#include "apps/explorer.h"
 
 #define CHAR_W     8
 #define CHAR_H     8
@@ -88,17 +89,17 @@ static void cpuid_call(uint32_t code, uint32_t* a, uint32_t* b, uint32_t* c, uin
 
 static void cmd_help(void) {
     sp("Commands:");
-    sp(" - help");
-    sp(" - clear");
-    sp(" - echo");
-    sp(" - info");
-    sp(" - pwd");
-    sp(" - ls");
-    sp(" - cd");
-    sp(" - cat");
-    sp(" - wr");
-    sp(" - run");
-    sp(" - mk");
+    sp(" - help      - commands list");
+    sp(" - clear     - clear console");
+    sp(" - echo      - print text in console");
+    sp(" - info      - info about PC");
+    sp(" - pwd       - outputs the current path");
+    sp(" - ls        - list of files in directory");
+    sp(" - cd        - change directory");
+    sp(" - cat       - output file content");
+    sp(" - wr        - write line into file");
+    sp(" - run       - run shell file");
+    sp(" - mk     ");
     sp(" - mkdir");
     sp(" - rm");
     sp(" - rmdir");
@@ -214,9 +215,9 @@ static void cmd_rmdir(const char* args) {
 
 static void cmd_info(void) {
     sp("=== GimmelOS SYSTEM INFO ===");
-    sp("OS: GimmelOS v0.1  |  Arch: x86 32-bit");
+    sp("OS: GimmelOS v0.1     |  Arch: x86 32-bit");
     sp("Boot: GRUB Multiboot  |  GFX: framebuffer");
-    sp("Input: PS/2 polling  |  Mem: flat, no paging");
+    sp("Input: PS/2 polling   |  Mem: flat, no paging");
 
     uint32_t a, b, c, d;
     cpuid_call(0, &a, &b, &c, &d);
@@ -240,7 +241,11 @@ static void cmd_lito(const char* args) {
 }
 
 static void cmd_wolfenstein(void) {
-    wm_create_app("Wolfenstein", (rec){50, 50, 50, 50}, GFX_BLACK, game_init, game_update, game_draw);
+    wm_create_app("Wolfenstein", (rec){100, 100, 200, 200}, GFX_BLACK, game_init, game_update, game_draw);
+}
+
+static void cmd_explorer(void) {
+    wm_create_app("Explorer", (rec){100, 100, 200, 200}, GFX_BLACK, explorer_init, explorer_update, explorer_draw);
 }
 
 static void run_gim(const char* args) {
@@ -307,6 +312,7 @@ static void read_command(const char* input) {
     else if (CMD_IS("rmdir"))       cmd_rmdir(args);
     else if (CMD_IS("cat"))         cmd_cat(args);
     else if (CMD_IS("run"))         run_gim(args);
+    else if (CMD_IS("explorer"))    cmd_explorer();
     else if (CMD_IS("wolfenstein")) cmd_wolfenstein();
     else {
         char tmp[LINE_BUF_W];
