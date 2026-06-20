@@ -152,8 +152,7 @@ static void cmd_ls(const char* args) {
         }
         kstrncpy(line + lx, names[i], LINE_BUF_W - lx);
         lx += nlen;
-        line[lx++] = ' ';
-        line[lx++] = ' ';
+        line[lx++] = '\n';
         line[lx] = '\0';
     }
 

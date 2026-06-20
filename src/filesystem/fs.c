@@ -257,22 +257,49 @@ void fs_get_path(int id, char *out, size_t maxlen) {
 }
 
 void fs_list_names(uint32_t parent, char names[][FS_MAX_NAME], int* count) {
-    *count = 0;
+    int idx[32];
+    int n = 0;
 
-    for (int i = 0; i < FS_MAX_INODES; i++) {
-        if (!inodes[i].used || inodes[i].parent != parent) continue;
-        kstrncpy(names[*count], inodes[i].name, FS_MAX_NAME);
+    for (int i = 0; i < FS_MAX_INODES && n < 32; i++) {
+        if (inodes[i].used && inodes[i].parent == parent) {
+            idx[n++] = i;
+        }
+    }
 
-        if (inodes[i].is_dir) {
-            int nlen = kstrlen(names[*count]);
+    for (int a = 0; a < n - 1; a++) {
+        for (int b = 0; b < n - 1 - a; b++) {
+            int i1 = idx[b];
+            int i2 = idx[b + 1];
+            int swap = 0;
+
+            if (inodes[i1].is_dir != inodes[i2].is_dir) {
+                if (!inodes[i1].is_dir && inodes[i2].is_dir) swap = 1;
+            }
             
-            if (nlen < FS_MAX_NAME - 1) {
-                names[*count][nlen]     = '/';
-                names[*count][nlen + 1] = '\0';
+            else if (kstrcmp(inodes[i1].name, inodes[i2].name) > 0) {
+                swap = 1;
+            }
+
+            if (swap) {
+                int tmp = idx[b];
+                idx[b] = idx[b + 1];
+                idx[b + 1] = tmp;
             }
         }
+    }
 
-        (*count)++;
-        if (*count >= 32) break;
+    *count = n;
+    
+    for (int k = 0; k < n; k++) {
+        int i = idx[k];
+        kstrncpy(names[k], inodes[i].name, FS_MAX_NAME);
+
+        if (inodes[i].is_dir) {
+            int nlen = kstrlen(names[k]);
+            if (nlen < FS_MAX_NAME - 1) {
+                names[k][nlen]     = '/';
+                names[k][nlen + 1] = '\0';
+            }
+        }
     }
 }
