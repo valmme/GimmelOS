@@ -1,6 +1,7 @@
 #include "apps/explorer.h"
 #include "fs.h"
 #include "gfx/wm.h"
+#include "gfx/icons.h"
 #include "drivers/keyboard.h"
 #include "lib/kstring.h"
 
@@ -11,7 +12,12 @@
 #define COLOR_PATH_BG     ((gfx_color_t){20, 20, 20, 255})
 
 #define ITEM_Y0 20
-#define ITEM_H  14
+#define ITEM_H  34
+
+#define ICON_PAD_X      4
+#define ICON_PAD_Y      1
+#define ICON_TEXT_GAP   4
+#define TEXT_X_OFFSET   (ICON_PAD_X + FOLDER_W + ICON_TEXT_GAP)
 
 extern mouse_state_t mouse;
 extern wm_t wm;
@@ -22,6 +28,16 @@ static char file_names[FS_MAX_INODES][FS_MAX_NAME];
 static int file_count = 0;
 static int selected_idx = 0;
 static int prev_left = 0;
+
+static int name_has_dir_slash(const char* name) {
+    int len = kstrlen(name);
+    return len > 0 && name[len - 1] == '/';
+}
+
+static void strip_dir_slash(char* name) {
+    int len = kstrlen(name);
+    if (len > 0 && name[len - 1] == '/') name[len - 1] = '\0';
+}
 
 static void refresh_file_list() {
     file_count = 0;
@@ -57,7 +73,11 @@ static void activate_selected(void) {
         return;
     }
 
-    int id = fs_find_in(file_names[selected_idx], current_path);
+    char lookup_name[FS_MAX_NAME];
+    kstrncpy(lookup_name, file_names[selected_idx], FS_MAX_NAME);
+    strip_dir_slash(lookup_name);
+
+    int id = fs_find_in(lookup_name, current_path);
     if (id >= 0 && fs_is_dir(id)) {
         current_path = id;
         selected_idx = 0;
@@ -165,27 +185,32 @@ void explorer_draw(int wid) {
 
             gfx_color_t text_color = COLOR_TEXT_FILE;
             char display_name[FS_MAX_NAME + 4];
+            int draw_folder_icon = 0;
 
             if (kstrcmp(file_names[i], "..") == 0) {
                 text_color = COLOR_TEXT_DIR;
-                kstrncpy(display_name, "[ .. ]", sizeof(display_name));
+                kstrncpy(display_name, "..", sizeof(display_name));
+                draw_folder_icon = 1;
+            }
+
+            else if (name_has_dir_slash(file_names[i])) {
+                text_color = COLOR_TEXT_DIR;
+                kstrncpy(display_name, file_names[i], sizeof(display_name));
+                strip_dir_slash(display_name);
+                draw_folder_icon = 1;
             }
 
             else {
-                int id = fs_find_in(file_names[i], current_path);
-                if (id >= 0 && fs_is_dir(id)) {
-                    text_color = COLOR_TEXT_DIR;
-                    kstrncpy(display_name, "[ ", sizeof(display_name));
-                    kstrncat(display_name, file_names[i], sizeof(display_name));
-                    kstrncat(display_name, " ]", sizeof(display_name));
-                }
-
-                else {
-                    kstrncpy(display_name, file_names[i], sizeof(display_name));
-                }
+                kstrncpy(display_name, file_names[i], sizeof(display_name));
+                wm_draw_texture(txt_file_icon, (vec2){ICON_PAD_X, item_y + ICON_PAD_Y}, (vec2){FILE_W, FILE_H});
             }
 
-            wm_draw_text(display_name, (vec2){8, item_y + 3}, text_color, item_bg);
+            if (draw_folder_icon) {
+                wm_draw_texture(folder_icon, (vec2){ICON_PAD_X, item_y + ICON_PAD_Y}, (vec2){FOLDER_W, FOLDER_H});
+            }
+
+            int text_y = item_y + (ITEM_H - FB_CHAR_H) / 2;
+            wm_draw_text(display_name, (vec2){TEXT_X_OFFSET, text_y}, text_color, item_bg);
             item_y += ITEM_H;
         }
     }

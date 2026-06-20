@@ -70,7 +70,7 @@ static void wm98_draw_dither_gradient(rec r, vec2 origin, gfx_color_t near_color
             uint32_t threshold = (dist * 255) / (uint32_t)max_dist;
             if (threshold > 255) threshold = 255;
 
-            uint32_t noise = wm98_hash(x * 2, y * 2);
+            uint32_t noise = wm98_hash(x, y);
 
             gfx_color_t color = (noise > threshold) ? near_color : far_color;
             gfx_put_pixel_clipped((vec2){x, y}, color);
@@ -507,6 +507,7 @@ void wm_draw(int id) {
 
     gfx_color_t near_color = w->focused ? (gfx_color_t){ 16, 16, 200, 255 } : WM98_TITLE_INACTIVE;
     gfx_color_t far_color = w->focused ? (gfx_color_t){ 0, 0, 80, 255 } : (gfx_color_t){ 64, 64, 64, 255 };
+
     vec2 origin = { title_bar.x, title_bar.y + title_bar.h / 2 };
 
     wm98_draw_dither_gradient(title_bar, origin, near_color, far_color, (int32_t)title_bar.w);
