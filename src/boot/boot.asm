@@ -10,13 +10,8 @@ align 4
     dd MBOOT_CHECKSUM
 
     dd 0
-    dd 0
-    dd 0
-    dd 0
-    dd 0
-    dd 0
-    dd 800 ; width
-    dd 600 ; height
+    dd 1366 ; width
+    dd 768 ; height
     dd 32 ; depth
 
 
