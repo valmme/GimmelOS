@@ -6,6 +6,36 @@ wm_t wm;
 
 static wm_canvas_t current_canvas;
 
+#define WM98_FACE           ((gfx_color_t){192, 192, 192, 255})
+#define WM98_SHADOW         ((gfx_color_t){128, 128, 128, 255})
+#define WM98_DARK_SHADOW    ((gfx_color_t){ 64,  64,  64, 255})
+#define WM98_HILIGHT        ((gfx_color_t){255, 255, 255, 255})
+#define WM98_TITLE_ACTIVE   ((gfx_color_t){  0,   0, 128, 255})
+#define WM98_TITLE_INACTIVE ((gfx_color_t){128, 128, 128, 255})
+#define WM98_TITLE_TEXT     ((gfx_color_t){255, 255, 255, 255})
+#define WM98_BLACK          ((gfx_color_t){  0,   0,   0, 255})
+
+static void wm98_draw_bevel(rec r, int raised) {
+    gfx_color_t outer_tl = raised ? WM98_HILIGHT     : WM98_DARK_SHADOW;
+    gfx_color_t outer_br = raised ? WM98_DARK_SHADOW : WM98_HILIGHT;
+    gfx_color_t inner_tl = raised ? WM98_FACE        : WM98_SHADOW;
+    gfx_color_t inner_br = raised ? WM98_SHADOW      : WM98_FACE;
+
+    int32_t x0 = r.x, y0 = r.y;
+    int32_t x1 = r.x + (int32_t)r.w - 1;
+    int32_t y1 = r.y + (int32_t)r.h - 1;
+
+    gfx_draw_line((vec2){x0, y0}, (vec2){x1, y0}, outer_tl);
+    gfx_draw_line((vec2){x0, y0}, (vec2){x0, y1}, outer_tl);
+    gfx_draw_line((vec2){x1, y0}, (vec2){x1, y1}, outer_br);
+    gfx_draw_line((vec2){x0, y1}, (vec2){x1, y1}, outer_br);
+
+    gfx_draw_line((vec2){x0+1, y0+1}, (vec2){x1-1, y0+1}, inner_tl);
+    gfx_draw_line((vec2){x0+1, y0+1}, (vec2){x0+1, y1-1}, inner_tl);
+    gfx_draw_line((vec2){x1-1, y0+1}, (vec2){x1-1, y1-1}, inner_br);
+    gfx_draw_line((vec2){x0+1, y1-1}, (vec2){x1-1, y1-1}, inner_br);
+}
+
 void wm_init(void) {
     wm.count     = 0;
     wm.focused   = -1;
@@ -422,58 +452,44 @@ void wm_draw(int id) {
     window_t* w = &wm.windows[id];
     if (!w->visible) return;
 
-    gfx_color_t border   = w->focused ? GFX_WHITE     : GFX_GRAY;
-    gfx_color_t title_fg = w->focused ? GFX_WHITE     : GFX_LIGHT_GRAY;
-    gfx_color_t title_bg = w->focused ? GFX_DARK_BLUE : GFX_DARK_GRAY;
+    gfx_color_t title_bg = w->focused ? WM98_TITLE_ACTIVE : WM98_TITLE_INACTIVE;
+    gfx_color_t title_fg = WM98_TITLE_TEXT;
+    
+    wm98_draw_bevel(w->bounds, 1);
 
-    rec title_bar = { w->bounds.x, w->bounds.y, w->bounds.w, WM_TITLEBAR_H };
-
+    rec title_bar = {
+        w->bounds.x + 3, w->bounds.y + 3,
+        w->bounds.w - 6, WM_TITLEBAR_H - 4
+    };
     gfx_draw_fill_rec(title_bar, title_bg);
-    gfx_print(w->title, (vec2){ w->bounds.x + 4, w->bounds.y + 6 }, title_fg, title_bg);
-    gfx_draw_rec(title_bar, border);
+    gfx_print(w->title, (vec2){ title_bar.x + 4, title_bar.y + 3 }, title_fg, title_bg);
 
     rec rc = wm_btn_rect(w, 0);
-    gfx_color_t close_bg = w->focused ? (gfx_color_t){180, 40, 40, 255} : (gfx_color_t){ 80, 20, 20, 255};
-
-    gfx_draw_fill_rec(rc, close_bg);
-    gfx_draw_rec(rc, border);
-    gfx_draw_line((vec2){rc.x+2, rc.y+2}, (vec2){rc.x+WM_BTN_SIZE-3, rc.y+WM_BTN_SIZE-3}, title_fg);
-    gfx_draw_line((vec2){rc.x+WM_BTN_SIZE-3, rc.y+2}, (vec2){rc.x+2, rc.y+WM_BTN_SIZE-3}, title_fg);
+    wm98_draw_bevel(rc, 1);
+    gfx_draw_fill_rec((rec){rc.x+1, rc.y+1, rc.w-2, rc.h-2}, WM98_FACE);
+    gfx_draw_line((vec2){rc.x+3, rc.y+3}, (vec2){rc.x+rc.w-4, rc.y+rc.h-4}, WM98_BLACK);
+    gfx_draw_line((vec2){rc.x+rc.w-4, rc.y+3}, (vec2){rc.x+3, rc.y+rc.h-4}, WM98_BLACK);
 
     rec rm = wm_btn_rect(w, 1);
-    gfx_draw_fill_rec(rm, title_bg);
-    gfx_draw_rec(rm, border);
-
-    if (w->maximized) {
-        rec inner = { rm.x+3, rm.y+4, WM_BTN_SIZE-6, WM_BTN_SIZE-7 };
-        gfx_draw_rec(inner, title_fg);
-        gfx_draw_line((vec2){rm.x+5, rm.y+2}, (vec2){rm.x+WM_BTN_SIZE-3, rm.y+2}, title_fg);
-        gfx_draw_line((vec2){rm.x+WM_BTN_SIZE-3, rm.y+2}, (vec2){rm.x+WM_BTN_SIZE-3, rm.y+WM_BTN_SIZE-5}, title_fg);
-    }
-    
-    else {
-        rec sq = { rm.x+2, rm.y+2, WM_BTN_SIZE-4, WM_BTN_SIZE-4 };
-        gfx_draw_rec(sq, title_fg);
-    }
+    wm98_draw_bevel(rm, 1);
+    gfx_draw_fill_rec((rec){rm.x+1, rm.y+1, rm.w-2, rm.h-2}, WM98_FACE);
+    gfx_draw_rec((rec){rm.x+3, rm.y+3, rm.w-6, rm.h-6}, WM98_BLACK);
 
     rec rn = wm_btn_rect(w, 2);
-    gfx_draw_fill_rec(rn, title_bg);
-    gfx_draw_rec(rn, border);
-
-    int32_t my = rn.y + WM_BTN_SIZE - 4;
-    gfx_draw_line((vec2){rn.x+2, my}, (vec2){rn.x+WM_BTN_SIZE-3, my}, title_fg);
+    wm98_draw_bevel(rn, 1);
+    gfx_draw_fill_rec((rec){rn.x+1, rn.y+1, rn.w-2, rn.h-2}, WM98_FACE);
+    int32_t my = rn.y + rn.h - 5;
+    gfx_draw_line((vec2){rn.x+3, my}, (vec2){rn.x+rn.w-4, my}, WM98_BLACK);
 
     if (w->minimized) return;
 
     rec body = {
-        w->bounds.x,
+        w->bounds.x + 3,
         w->bounds.y + WM_TITLEBAR_H,
-        w->bounds.w,
-        w->bounds.h - WM_TITLEBAR_H
+        w->bounds.w - 6,
+        w->bounds.h - WM_TITLEBAR_H - 3
     };
-
-    gfx_draw_fill_rec(body, w->bg);
-    gfx_draw_rec(w->bounds, border);
+    gfx_draw_fill_rec(body, WM98_FACE);
 
     if (w->on_draw) w->on_draw(id);
 
@@ -484,12 +500,11 @@ void wm_draw(int id) {
             WM_RESIZE_BORDER,
             WM_RESIZE_BORDER
         };
-        gfx_draw_fill_rec(handle, border);
+        gfx_draw_fill_rec(handle, WM98_SHADOW);
     }
 
     for (int i = 0; i < w->widgets_count; i++)
         wm_draw_widget(w, &w->widgets[i]);
-
 }
 
 void wm_draw_all(void) {
