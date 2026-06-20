@@ -12,8 +12,8 @@ uint32_t pitch;
 static uint32_t fb_cursor_x = 0;
 static uint32_t fb_cursor_y = 0;
 
-static gfx_color_t desktop_color_top_left = {0, 0, 170, 255};
-static gfx_color_t desktop_color_bottom_right = {128, 0, 128, 255};
+static gfx_color_t desktop_color_top_left = {74, 117, 247, 255};
+static gfx_color_t desktop_color_bottom_right = {57, 237, 168, 255};
 
 static rec gfx_clip;
 
@@ -55,7 +55,7 @@ void gfx_end_frame(void) {
     }
 }
 
-void gfx_paint_desktop() {
+void gfx_paint_desktop(void) {
     rec screen_rec = {0, 0, width, height};
     wm98_draw_diagonal_dither_gradient(screen_rec, desktop_color_top_left, desktop_color_bottom_right);   
 }

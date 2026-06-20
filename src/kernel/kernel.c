@@ -84,6 +84,7 @@ void gfx_render_frame() {
         prev_left = mouse.left;
 
         gfx_begin_frame(GFX_DARK_BLUE);
+        gfx_paint_desktop();
 
         for (int i = 0; i < wm.count; i++) {
             window_t* w = &wm.windows[i];
