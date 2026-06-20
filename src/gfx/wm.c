@@ -537,7 +537,7 @@ void wm_draw(int id) {
         w->bounds.w - 6,
         w->bounds.h - WM_TITLEBAR_H - 3
     };
-    gfx_draw_fill_rec(body, WM98_FACE);
+    gfx_draw_fill_rec(body, w->bg);
 
     if (w->on_draw) w->on_draw(id);
 
