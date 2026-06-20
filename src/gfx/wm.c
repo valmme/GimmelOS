@@ -15,6 +15,30 @@ static wm_canvas_t current_canvas;
 #define WM98_TITLE_TEXT     ((gfx_color_t){255, 255, 255, 255})
 #define WM98_BLACK          ((gfx_color_t){  0,   0,   0, 255})
 
+static uint32_t wm98_isqrt(uint32_t n) {
+    uint32_t res = 0;
+    uint32_t bit = 1u << 30;
+
+    while (bit > n) bit >>= 2;
+    while (bit != 0) {
+        if (n >= res + bit) {
+            n -= res + bit;
+            res += bit << 1;
+        }
+
+        res >>= 1;
+        bit >>= 2;
+    }
+
+    return res;
+}
+
+static uint32_t wm98_hash(int32_t x, int32_t y) {
+    uint32_t h = (uint32_t)(x * 374761393 + y * 668265263);
+    h = (h ^ (h >> 13)) * 1274126177u;
+    return (h ^ (h >> 16)) & 0xFF;
+}
+
 static void wm98_draw_bevel(rec r, int raised) {
     gfx_color_t outer_tl = raised ? WM98_HILIGHT     : WM98_DARK_SHADOW;
     gfx_color_t outer_br = raised ? WM98_DARK_SHADOW : WM98_HILIGHT;
@@ -34,6 +58,24 @@ static void wm98_draw_bevel(rec r, int raised) {
     gfx_draw_line((vec2){x0+1, y0+1}, (vec2){x0+1, y1-1}, inner_tl);
     gfx_draw_line((vec2){x1-1, y0+1}, (vec2){x1-1, y1-1}, inner_br);
     gfx_draw_line((vec2){x0+1, y1-1}, (vec2){x1-1, y1-1}, inner_br);
+}
+
+static void wm98_draw_dither_gradient(rec r, vec2 origin, gfx_color_t near_color, gfx_color_t far_color, int32_t max_dist) {
+    for (int32_t y = r.y; y < r.y + (int32_t)r.h; y++) {
+        for (int32_t x = r.x; x < r.x + (int32_t)r.w; x++) {
+            int32_t dx = x - origin.x;
+            int32_t dy = y - origin.y;
+            uint32_t dist = wm98_isqrt((uint32_t)(dx*dx + dy*dy));
+
+            uint32_t threshold = (dist * 255) / (uint32_t)max_dist;
+            if (threshold > 255) threshold = 255;
+
+            uint32_t noise = wm98_hash(x * 2, y * 2);
+
+            gfx_color_t color = (noise > threshold) ? near_color : far_color;
+            gfx_put_pixel_clipped((vec2){x, y}, color);
+        }
+    }
 }
 
 void wm_init(void) {
@@ -461,7 +503,13 @@ void wm_draw(int id) {
         w->bounds.x + 3, w->bounds.y + 3,
         w->bounds.w - 6, WM_TITLEBAR_H - 4
     };
-    gfx_draw_fill_rec(title_bar, title_bg);
+    
+
+    gfx_color_t near_color = w->focused ? (gfx_color_t){ 16, 16, 200, 255 } : WM98_TITLE_INACTIVE;
+    gfx_color_t far_color = w->focused ? (gfx_color_t){ 0, 0, 80, 255 } : (gfx_color_t){ 64, 64, 64, 255 };
+    vec2 origin = { title_bar.x, title_bar.y + title_bar.h / 2 };
+
+    wm98_draw_dither_gradient(title_bar, origin, near_color, far_color, (int32_t)title_bar.w);
     gfx_print(w->title, (vec2){ title_bar.x + 4, title_bar.y + 3 }, title_fg, title_bg);
 
     rec rc = wm_btn_rect(w, 0);
