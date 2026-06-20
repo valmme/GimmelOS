@@ -1,6 +1,8 @@
 #include "gfx/gfx.h"
+#include "gfx/wm.h"
 #include "gfx/icons.h"
 #include "kernel/cpu/io.h"
+
 
 uint32_t* framebuffer;
 uint32_t width;
@@ -9,6 +11,9 @@ uint32_t pitch;
 
 static uint32_t fb_cursor_x = 0;
 static uint32_t fb_cursor_y = 0;
+
+static gfx_color_t desktop_color_top_left = {0, 0, 170, 255};
+static gfx_color_t desktop_color_bottom_right = {128, 0, 128, 255};
 
 static rec gfx_clip;
 
@@ -19,7 +24,7 @@ const uint32_t vga_palette[16] = {
     0xFF5555, 0xFF55FF, 0xFFFF55, 0xFFFFFF,
 };
 
-static uint32_t* backbuffer = 0;
+uint32_t* backbuffer = 0;
 
 void gfx_init(vec2 res, uint32_t p, uint32_t* fb) {
     width = res.x;
@@ -48,6 +53,15 @@ void gfx_end_frame(void) {
         for (uint32_t x = 0; x < width; x++)
             drow[x] = srow[x];
     }
+}
+
+void gfx_paint_desktop() {
+    rec screen_rec = {0, 0, width, height};
+    wm98_draw_diagonal_dither_gradient(screen_rec, desktop_color_top_left, desktop_color_bottom_right);   
+}
+
+void gfx_put_pixel(uint32_t x, uint32_t y, gfx_color_t color) {
+    backbuffer[y * width + x] = gfx_pack_color(color);
 }
 
 void gfx_putchar_ex(char c, vec2 pos, gfx_color_t fg, gfx_color_t bg, int scale) {
@@ -90,12 +104,6 @@ void gfx_print(const char* str, vec2 pos, gfx_color_t fg, gfx_color_t bg) {
     gfx_print_ex(str, pos, fg, bg, 1);
 }
 
-void gfx_put_pixel(uint32_t x, uint32_t y, gfx_color_t color) {
-    if (x >= width || y >= height) return;
-    uint32_t packed = ((uint32_t)color.r << 16) | ((uint32_t)color.g << 8) | (uint32_t)color.b;
-    backbuffer[y * width + x] = packed;
-}
-
 void gfx_draw_line(vec2 a, vec2 b, gfx_color_t color) {
     int dx = (b.x > a.x) ? b.x - a.x : a.x - b.x;
     int sx = (a.x < b.x) ? 1 : -1;
@@ -133,9 +141,21 @@ void gfx_draw_rec(rec r, gfx_color_t color) {
 }
 
 void gfx_draw_fill_rec(rec r, gfx_color_t color) {
-    for (int32_t y = r.y; y < r.y + (int32_t)r.h; y++) {
-        for (int32_t x = r.x; x < r.x + (int32_t)r.w; x++) {
-            gfx_put_pixel(x, y, color);
+    int32_t x0 = r.x < 0 ? 0 : r.x;
+    int32_t y0 = r.y < 0 ? 0 : r.y;
+    int32_t x1 = r.x + r.w;
+    int32_t y1 = r.y + r.h;
+    
+    if (x1 > width) x1 = width;
+    if (y1 > height) y1 = height;
+    if (x0 >= x1 || y0 >= y1) return;
+
+    uint32_t packed = ((uint32_t)color.r << 16) | ((uint32_t)color.g << 8) | (uint32_t)color.b;
+
+    for (int32_t y = y0; y < y1; y++) {
+        uint32_t* row = backbuffer + y * width;
+        for (int32_t x = x0; x < x1; x++) {
+            row[x] = packed;
         }
     }
 }

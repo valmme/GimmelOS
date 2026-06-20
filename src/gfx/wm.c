@@ -6,6 +6,8 @@ wm_t wm;
 
 static wm_canvas_t current_canvas;
 
+#define BAYER_MATRIX_SIZE 16
+
 #define WM98_FACE           ((gfx_color_t){192, 192, 192, 255})
 #define WM98_SHADOW         ((gfx_color_t){128, 128, 128, 255})
 #define WM98_DARK_SHADOW    ((gfx_color_t){ 64,  64,  64, 255})
@@ -15,28 +17,60 @@ static wm_canvas_t current_canvas;
 #define WM98_TITLE_TEXT     ((gfx_color_t){255, 255, 255, 255})
 #define WM98_BLACK          ((gfx_color_t){  0,   0,   0, 255})
 
-static uint32_t wm98_isqrt(uint32_t n) {
-    uint32_t res = 0;
-    uint32_t bit = 1u << 30;
-
-    while (bit > n) bit >>= 2;
-    while (bit != 0) {
-        if (n >= res + bit) {
-            n -= res + bit;
-            res += bit << 1;
-        }
-
-        res >>= 1;
-        bit >>= 2;
+void wm98_generate_bayer_matrix(uint32_t size, uint8_t* out_matrix) {
+    if (size == 2) {
+        out_matrix[0] = 0;
+        out_matrix[1] = 2;
+        out_matrix[2] = 3;
+        out_matrix[3] = 1;
+        return;
     }
-
-    return res;
+    
+    uint32_t half = size / 2;
+    
+    uint8_t temp[64];
+    wm98_generate_bayer_matrix(half, temp); 
+    
+    for (uint32_t y = 0; y < half; y++) {
+        for (uint32_t x = 0; x < half; x++) {
+            uint8_t val = temp[y * half + x] * 4;
+            
+            out_matrix[y * size + x]                   = val + 0;
+            out_matrix[y * size + (x + half)]          = val + 2;
+            out_matrix[(y + half) * size + x]          = val + 3;
+            out_matrix[(y + half) * size + (x + half)] = val + 1;
+        }
+    }
 }
 
-static uint32_t wm98_hash(int32_t x, int32_t y) {
-    uint32_t h = (uint32_t)(x * 374761393 + y * 668265263);
-    h = (h ^ (h >> 13)) * 1274126177u;
-    return (h ^ (h >> 16)) & 0xFF;
+void wm98_draw_diagonal_dither_gradient(rec r, gfx_color_t color_tl, gfx_color_t color_br) {
+    if (r.w == 0 || r.h == 0) return;
+
+    uint32_t packed_tl = ((uint32_t)color_tl.r << 16) | ((uint32_t)color_tl.g << 8) | (uint32_t)color_tl.b;
+    uint32_t packed_br = ((uint32_t)color_br.r << 16) | ((uint32_t)color_br.g << 8) | (uint32_t)color_br.b;
+
+    static uint8_t bayer_matrix[BAYER_MATRIX_SIZE * BAYER_MATRIX_SIZE];
+    static int is_initialized = 0;
+    
+    if (!is_initialized) {
+        wm98_generate_bayer_matrix(BAYER_MATRIX_SIZE, bayer_matrix);
+        is_initialized = 1;
+    }
+
+    uint32_t total_levels = BAYER_MATRIX_SIZE * BAYER_MATRIX_SIZE;
+
+    for (int32_t y = r.y; y < r.y + (int32_t)r.h; y++) {
+        uint32_t* row = backbuffer + y * width;
+        uint32_t progress_y = ((y - r.y) * total_levels) / r.h;
+
+        for (int32_t x = r.x; x < r.x + (int32_t)r.w; x++) {
+            uint32_t progress_x = ((x - r.x) * total_levels) / r.w; 
+            uint32_t progress = (progress_x + progress_y) / 2;
+            uint8_t threshold = bayer_matrix[(y % BAYER_MATRIX_SIZE) * BAYER_MATRIX_SIZE + (x % BAYER_MATRIX_SIZE)];
+            
+            row[x] = (progress > threshold) ? packed_br : packed_tl;
+        }
+    }
 }
 
 static void wm98_draw_bevel(rec r, int raised) {
@@ -60,20 +94,25 @@ static void wm98_draw_bevel(rec r, int raised) {
     gfx_draw_line((vec2){x0+1, y1-1}, (vec2){x1-1, y1-1}, inner_br);
 }
 
-static void wm98_draw_dither_gradient(rec r, vec2 origin, gfx_color_t near_color, gfx_color_t far_color, int32_t max_dist) {
+static void wm98_draw_dither_gradient(rec r, gfx_color_t near_color, gfx_color_t far_color) {
+    uint32_t packed_near = ((uint32_t)near_color.r << 16) | ((uint32_t)near_color.g << 8) | (uint32_t)near_color.b;
+    uint32_t packed_far  = ((uint32_t)far_color.r << 16) | ((uint32_t)far_color.g << 8) | (uint32_t)far_color.b;
+
+    static uint8_t bayer_matrix[BAYER_MATRIX_SIZE * BAYER_MATRIX_SIZE];
+    static int is_initialized = 0;
+    
+    if (!is_initialized) {
+        wm98_generate_bayer_matrix(BAYER_MATRIX_SIZE, bayer_matrix);
+        is_initialized = 1;
+    }
+
     for (int32_t y = r.y; y < r.y + (int32_t)r.h; y++) {
+        uint32_t* row = backbuffer + y * width;
         for (int32_t x = r.x; x < r.x + (int32_t)r.w; x++) {
-            int32_t dx = x - origin.x;
-            int32_t dy = y - origin.y;
-            uint32_t dist = wm98_isqrt((uint32_t)(dx*dx + dy*dy));
-
-            uint32_t threshold = (dist * 255) / (uint32_t)max_dist;
-            if (threshold > 255) threshold = 255;
-
-            uint32_t noise = wm98_hash(x, y);
-
-            gfx_color_t color = (noise > threshold) ? near_color : far_color;
-            gfx_put_pixel_clipped((vec2){x, y}, color);
+            uint32_t progress = ((x - r.x) * BAYER_MATRIX_SIZE * BAYER_MATRIX_SIZE) / r.w; 
+            uint8_t threshold = bayer_matrix[(y % BAYER_MATRIX_SIZE) * BAYER_MATRIX_SIZE + (x % BAYER_MATRIX_SIZE)];
+            
+            row[x] = (progress > threshold) ? packed_far : packed_near;
         }
     }
 }
@@ -510,7 +549,7 @@ void wm_draw(int id) {
 
     vec2 origin = { title_bar.x, title_bar.y + title_bar.h / 2 };
 
-    wm98_draw_dither_gradient(title_bar, origin, near_color, far_color, (int32_t)title_bar.w);
+    wm98_draw_dither_gradient(title_bar, near_color, far_color);
     gfx_print(w->title, (vec2){ title_bar.x + 4, title_bar.y + 3 }, title_fg, title_bg);
 
     rec rc = wm_btn_rect(w, 0);

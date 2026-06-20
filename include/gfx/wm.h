@@ -124,4 +124,6 @@ void wm_draw_circle(vec2 pos, int32_t radius, gfx_color_t color);
 void wm_draw_fill_circle(vec2 pos, int32_t radius, gfx_color_t color);
 void wm_draw_texture(const uint32_t* tex, vec2 pos, vec2 size);
 
+void wm98_draw_diagonal_dither_gradient(rec r, gfx_color_t color_tl, gfx_color_t color_br);
+
 #endif // GOS_WM_H

@@ -77,7 +77,7 @@ extern const uint8_t font[128][8];
 #define GFX_BLANK       (gfx_color_t){   0,   0,   0, 0 }
 #define GFX_MAGENTA     (gfx_color_t){ 255,   0, 255, 255 }
 
-
+extern uint32_t* backbuffer;
 
 uint8_t reverse_bits(uint8_t b);
 void gfx_init(vec2 res, uint32_t p, uint32_t* fb);
@@ -105,5 +105,9 @@ void gfx_draw_texture(const uint32_t* tex, vec2 pos, vec2 size);
 void gfx_set_clip(rec r);
 void gfx_reset_clip(void);
 void gfx_put_pixel_clipped(vec2 pos, gfx_color_t color);
+
+static inline uint32_t gfx_pack_color(gfx_color_t c) {
+    return ((uint32_t)c.r << 16) | ((uint32_t)c.g << 8) | (uint32_t)c.b;
+}
 
 #endif // GOS_GFX_H
