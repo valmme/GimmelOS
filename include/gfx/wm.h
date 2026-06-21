@@ -114,6 +114,7 @@ void wm_end_draw(void);
 
 // draw in canvas
 void wm_draw_pixel(vec2 pos, gfx_color_t color);
+void wm_draw_rec(rec r, gfx_color_t color);
 void wm_draw_fill_rec(rec r, gfx_color_t color);
 void wm_draw_line(vec2 a, vec2 b, gfx_color_t color);
 void wm_putchar_ex(char c, vec2 pos, gfx_color_t fg, gfx_color_t bg, int scale);

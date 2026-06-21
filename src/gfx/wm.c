@@ -627,6 +627,14 @@ void wm_draw_pixel(vec2 pos, gfx_color_t color) {
     gfx_put_pixel_clipped(addv(get_pos(current_canvas), pos), color);
 }
 
+void wm_draw_rec(rec r, gfx_color_t color) {
+    // top, bottom, left, right
+    for (int32_t x = r.x; x < r.x + (int32_t)r.w; x++) { wm_draw_pixel((vec2){x, r.y}, color); }
+    for (int32_t x = r.x; x < r.x + (int32_t)r.w; x++) { wm_draw_pixel((vec2){x, r.y + (int32_t)r.h - 1}, color); }
+    for (int32_t y = r.y; y < r.y + (int32_t)r.h; y++) { wm_draw_pixel((vec2){r.x, y}, color); }
+    for (int32_t y = r.y; y < r.y + (int32_t)r.h; y++) { wm_draw_pixel((vec2){r.x + (int32_t)r.w - 1, y}, color); }
+}
+
 void wm_draw_fill_rec(rec r, gfx_color_t color) {
     for (int32_t row = r.y; row < r.y + (int32_t)r.h; row++)
         for (int32_t col = r.x; col < r.x + (int32_t)r.w; col++)

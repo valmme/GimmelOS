@@ -4,6 +4,7 @@
 #include "apps/explorer/icons.h"
 #include "drivers/keyboard.h"
 #include "lib/kstring.h"
+#include "lib/math.h"
 
 #define COLOR_BG          ((gfx_color_t){30, 30, 30, 255})
 #define COLOR_TEXT_FILE   ((gfx_color_t){230, 230, 230, 255})
@@ -189,6 +190,12 @@ void explorer_draw(int wid) {
             gfx_color_t item_bg = is_selected ? COLOR_SELECTED_BG : COLOR_BG;
             if (is_selected) {
                 wm_draw_fill_rec(item_rec, item_bg);
+            }
+
+            vec2 rel_mouse = { mouse.pos.x - canvas.x, mouse.pos.y - canvas.y };
+
+            if (check_collision_rec(rel_mouse, item_rec)) {
+                wm_draw_rec(item_rec, GFX_WHITE);
             }
 
             gfx_color_t text_color = COLOR_TEXT_FILE;
