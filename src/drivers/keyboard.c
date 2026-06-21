@@ -8,6 +8,9 @@ static int kbd_q_head  = 0;
 static int kbd_q_tail  = 0;
 static int kbd_enabled = 1;
 
+static uint8_t key_down[256];
+static uint8_t key_pressed[256];
+
 static const char sc_ascii[128] = {
     0,   27,  '1', '2', '3', '4', '5', '6', '7', '8',
     '9', '0', '-', '=', '\b',
@@ -133,12 +136,31 @@ int keyboard_getchar(void) {
 }
 
 void keyboard_push_scancode(uint8_t sc) {
+    uint8_t key = sc & 0x7F;
+
+    if (sc & 0x80) {
+        key_down[key] = 0;
+    } else {
+        if (!key_down[key])
+            key_pressed[key] = 1;
+
+        key_down[key] = 1;
+    }
+
     int next = (kbd_q_tail + 1) % KBD_QUEUE_SIZE;
 
     if (next != kbd_q_head) {
         kbd_queue[kbd_q_tail] = sc;
         kbd_q_tail = next;
     }
+}
+
+uint8_t keyboard_is_key_down(uint8_t scancode) {
+    return key_down[scancode];
+}
+
+uint8_t keyboard_is_key_pressed(uint8_t scancode) {
+    return key_pressed[scancode];
 }
 
 void keyboard_set_enabled(int e) {
