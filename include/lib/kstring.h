@@ -32,7 +32,6 @@ static inline void kstrcpy(char* dst, const char* src, size_t max) {
     dst[i] = '\0';
 }
 
-
 static inline void kstrncpy(char* dst, const char* src, size_t max) {
     size_t i = 0;
     if (max == 0) return;

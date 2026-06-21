@@ -6,7 +6,7 @@
 
 #include "apps/game/game.h"
 #include "apps/editor.h"
-#include "apps/explorer.h"
+#include "apps/explorer/explorer.h"
 
 #define CHAR_W     8
 #define CHAR_H     8

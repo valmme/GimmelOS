@@ -1,7 +1,7 @@
-#include "apps/explorer.h"
+#include "apps/explorer/explorer.h"
 #include "fs.h"
 #include "gfx/wm.h"
-#include "gfx/icons.h"
+#include "apps/explorer/icons.h"
 #include "drivers/keyboard.h"
 #include "lib/kstring.h"
 
@@ -17,7 +17,7 @@
 #define ICON_PAD_X      4
 #define ICON_PAD_Y      1
 #define ICON_TEXT_GAP   4
-#define TEXT_X_OFFSET   (ICON_PAD_X + FOLDER_W + ICON_TEXT_GAP)
+#define TEXT_X_OFFSET   (ICON_PAD_X + ICON_W + ICON_TEXT_GAP)
 
 extern mouse_state_t mouse;
 extern wm_t wm;
@@ -28,6 +28,14 @@ static char file_names[FS_MAX_INODES][FS_MAX_NAME];
 static int file_count = 0;
 static int selected_idx = 0;
 static int prev_left = 0;
+
+static int ends_with(const char *str, const char *ext) {
+    int slen = kstrlen(str);
+    int elen = kstrlen(ext);
+    if (slen < elen) return 0;
+
+    return kstrcmp(str + slen - elen, ext) == 0;
+}
 
 static int name_has_dir_slash(const char* name) {
     int len = kstrlen(name);
@@ -202,11 +210,20 @@ void explorer_draw(int wid) {
 
             else {
                 kstrncpy(display_name, file_names[i], sizeof(display_name));
-                wm_draw_texture(txt_file_icon, (vec2){ICON_PAD_X, item_y + ICON_PAD_Y}, (vec2){FILE_W, FILE_H});
+                uint32_t icon[ICON_W * ICON_H];
+
+                if (ends_with(display_name, ".c"))        kmemcpy(icon, c_file_icon, sizeof(icon));
+                else if (ends_with(display_name, ".h"))   kmemcpy(icon, h_file_icon, sizeof(icon));
+                else if (ends_with(display_name, ".cpp")) kmemcpy(icon, cpp_file_icon, sizeof(icon));
+                else if (ends_with(display_name, ".hpp")) kmemcpy(icon, hpp_file_icon, sizeof(icon));
+                else kmemcpy(icon, file_icon, sizeof(icon));
+
+
+                wm_draw_texture(icon, (vec2){ICON_PAD_X, item_y + ICON_PAD_Y}, (vec2){ICON_W, ICON_H});
             }
 
             if (draw_folder_icon) {
-                wm_draw_texture(folder_icon, (vec2){ICON_PAD_X, item_y + ICON_PAD_Y}, (vec2){FOLDER_W, FOLDER_H});
+                wm_draw_texture(folder_icon, (vec2){ICON_PAD_X, item_y + ICON_PAD_Y}, (vec2){ICON_W, ICON_H});
             }
 
             int text_y = item_y + (ITEM_H - FB_CHAR_H) / 2;
