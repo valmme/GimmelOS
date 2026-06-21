@@ -22,8 +22,17 @@ static int map[MAP_H][MAP_W] = {
     {1,1,1,1,1,1,1,1},
 };
 
-typedef struct { float x, y, a; } player_t;
-typedef struct { float dist, hit_x; int side; } ray_hit_t;
+typedef struct {
+    float x;
+    float y;
+    float a;
+} player_t;
+
+typedef struct { 
+    float dist;
+    float hit_x;
+    int side; 
+} ray_hit_t;
 
 static player_t p = {3.5f, 3.5f, 0};
 static int key_w, key_s, key_a, key_d, key_esc;
@@ -49,26 +58,56 @@ static ray_hit_t dda_ray(float px, float py, float dx, float dy) {
     int stepX, stepY;
     float sideDistX, sideDistY;
 
-    if (dx < 0) { stepX = -1; sideDistX = (px - mapX) * deltaDistX; }
-    else { stepX = 1; sideDistX = (mapX + 1.0f - px) * deltaDistX; }
+    if (dx < 0) { 
+        stepX = -1; 
+        sideDistX = (px - mapX) * deltaDistX; 
+    }
 
-    if (dy < 0) { stepY = -1; sideDistY = (py - mapY) * deltaDistY; }
-    else { stepY = 1; sideDistY = (mapY + 1.0f - py) * deltaDistY; }
+    else { 
+        stepX = 1; 
+        sideDistX = (mapX + 1.0f - px) * deltaDistX; 
+    }
+
+    if (dy < 0) { 
+        stepY = -1; 
+        sideDistY = (py - mapY) * deltaDistY; 
+    }
+
+    else { 
+        stepY = 1; 
+        sideDistY = (mapY + 1.0f - py) * deltaDistY; 
+    }
 
     int side = 0;
 
     for (int i = 0; i < 64; i++) {
-        if (sideDistX < sideDistY) { sideDistX += deltaDistX; mapX += stepX; side = 0; }
-        else { sideDistY += deltaDistY; mapY += stepY; side = 1; }
+        if (sideDistX < sideDistY) { 
+            sideDistX += deltaDistX; 
+            mapX += stepX; 
+            side = 0; 
+        }
+
+        else { 
+            sideDistY += deltaDistY; 
+            mapY += stepY; 
+            side = 1; 
+        }
 
         if (map[mapY][mapX]) break;
     }
 
     float dist, hitX;
-    if (side == 0) { dist = sideDistX - deltaDistX; hitX = py + dist * dy; }
-    else { dist = sideDistY - deltaDistY; hitX = px + dist * dx; }
-    hitX -= (int)hitX;
+    if (side == 0) { 
+        dist = sideDistX - deltaDistX; 
+        hitX = py + dist * dy; 
+    }
 
+    else { 
+        dist = sideDistY - deltaDistY; 
+        hitX = px + dist * dx; 
+    }
+
+    hitX -= (int)hitX;
     return (ray_hit_t){dist, hitX, side};
 }
 
@@ -130,8 +169,10 @@ void game_draw(int wid) {
         float pz = h * 0.5f;
         float rowDist = pz / (y - h / 2);
 
-        float rayDirX0 = dirX - planeX, rayDirY0 = dirY - planeY;
-        float rayDirX1 = dirX + planeX, rayDirY1 = dirY + planeY;
+        float rayDirX0 = dirX - planeX;
+        float rayDirY0 = dirY - planeY;
+        float rayDirX1 = dirX + planeX;
+        float rayDirY1 = dirY + planeY;
 
         float stepX = rowDist * (rayDirX1 - rayDirX0) / w;
         float stepY = rowDist * (rayDirY1 - rayDirY0) / w;
