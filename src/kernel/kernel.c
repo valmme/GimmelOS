@@ -20,6 +20,7 @@ void kernel_main(uint32_t magic, uint32_t addr) {
     // vga_init()
     serial_init();
     keyboard_init();
+    fs_init();
 
     if (magic != 0x2BADB002) {
         // vga_warn("Not multiboot");

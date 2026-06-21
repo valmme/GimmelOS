@@ -6,11 +6,25 @@
 static inode_t inodes[FS_MAX_INODES];
 static uint8_t bitmap[FS_MAX_BLOCKS / 8];
 
+static void fs_write_sectors(uint32_t lba, uint8_t* buf, uint32_t bytes) {
+    uint32_t sectors = (bytes + 511) / 512;
+    for (uint32_t i = 0; i < sectors; i++) {
+        ata_write28(lba + i, buf + i * 512);
+    }
+}
+
+static void fs_read_sectors(uint32_t lba, uint8_t* buf, uint32_t bytes) {
+    uint32_t sectors = (bytes + 511) / 512;
+    for (uint32_t i = 0; i < sectors; i++) {
+        ata_read28(lba + i, buf + i * 512);
+    }
+}
+
 static int alloc_block() {
     for (int i = 0; i < FS_MAX_BLOCKS; i++) {
         if (!(bitmap[i / 8] & (1 << (i % 8)))) {
             bitmap[i / 8] |= (1 << (i % 8));
-            return i + 3;
+            return i + FS_DATA_LBA;
         }
     }
 
@@ -18,8 +32,8 @@ static int alloc_block() {
 }
 
 static void free_block_lba(uint32_t lba) {
-    if (lba < 3 || lba >= FS_MAX_BLOCKS + 3) return;
-    int b = (int)lba - 3;
+    if (lba < FS_DATA_LBA || lba >= FS_MAX_BLOCKS + FS_DATA_LBA) return;
+    int b = (int)lba - FS_DATA_LBA;
     bitmap[b / 8] &= ~(1 << (b % 8));
 }
 
@@ -41,20 +55,20 @@ void fs_init() {
         inodes[0].parent = 0;
         kstrcpy(inodes[0].name, "/", FS_MAX_NAME);
 
-        ata_write28(1, (uint8_t*)inodes);
-        ata_write28(2, bitmap);
+        fs_write_sectors(FS_INODE_LBA, (uint8_t*)inodes, sizeof(inodes));
+        fs_write_sectors(FS_BITMAP_LBA, bitmap, sizeof(bitmap));
     } 
     
     else {
-        ata_read28(1, (uint8_t*)inodes);
-        ata_read28(2, bitmap);
+        fs_read_sectors(FS_INODE_LBA, (uint8_t*)inodes, sizeof(inodes));
+        fs_read_sectors(FS_BITMAP_LBA, bitmap, sizeof(bitmap));
         if (!inodes[0].used) {
             inodes[0].used = 1;
             inodes[0].is_dir = 1;
             inodes[0].parent = 0;
 
             kstrcpy(inodes[0].name, "/", FS_MAX_NAME);
-            ata_write28(1, (uint8_t*)inodes);
+            fs_write_sectors(FS_INODE_LBA, (uint8_t*)inodes, sizeof(inodes));
         }
     }
 }
@@ -92,8 +106,8 @@ int fs_create(const char* name, uint32_t parent, uint8_t is_dir) {
                 ata_write28(lba, zero);
             }
 
-            ata_write28(1, (uint8_t*)inodes);
-            ata_write28(2, bitmap);
+            fs_write_sectors(FS_INODE_LBA, (uint8_t*)inodes, sizeof(inodes));
+            fs_write_sectors(FS_BITMAP_LBA, bitmap, sizeof(bitmap));
             return i;
         }
     }
@@ -115,8 +129,8 @@ int fs_write(const char* name, uint32_t parent, uint8_t* data, uint32_t size) {
     ata_write28(inodes[id].blocks[0], buf);
     inodes[id].size = size;
 
-    ata_write28(1, (uint8_t*)inodes);
-    ata_write28(2, bitmap);
+    fs_write_sectors(FS_INODE_LBA, (uint8_t*)inodes, sizeof(inodes));
+    fs_write_sectors(FS_BITMAP_LBA, bitmap, sizeof(bitmap));
     return 1;
 }
 
@@ -155,8 +169,8 @@ int fs_rm_by_id(int id) {
 
     free_block_lba(inodes[id].blocks[0]);
     kmemset(&inodes[id], 0, sizeof(inode_t));
-    ata_write28(1, (uint8_t*)inodes);
-    ata_write28(2, bitmap);
+    fs_write_sectors(FS_INODE_LBA, (uint8_t*)inodes, sizeof(inodes));
+    fs_write_sectors(FS_BITMAP_LBA, bitmap, sizeof(bitmap));
     return 1;
 }
 
@@ -169,7 +183,7 @@ int fs_rmdir_by_id(int id) {
     }
 
     kmemset(&inodes[id], 0, sizeof(inode_t));
-    ata_write28(1, (uint8_t*)inodes);
+    fs_write_sectors(FS_INODE_LBA, (uint8_t*)inodes, sizeof(inodes));
     return 1;
 }
 
@@ -204,7 +218,7 @@ int fs_write_by_id(int id, uint8_t* data, uint32_t size) {
     ata_write28(inodes[id].blocks[0], buf);
     inodes[id].size = size;
 
-    ata_write28(1, (uint8_t *)inodes);
+    fs_write_sectors(FS_INODE_LBA, (uint8_t *)inodes, sizeof(inodes));
     return 1;
 }
 

@@ -8,6 +8,17 @@
 #define FS_MAX_BLOCKS 4096
 #define FS_BLOCK_SIZE 512
 
+#define FS_INODES_BYTES   (sizeof(inode_t) * FS_MAX_INODES)
+#define FS_INODE_SECTORS  ((FS_INODES_BYTES + 511) / 512)
+
+#define FS_BITMAP_BYTES   (FS_MAX_BLOCKS / 8)
+#define FS_BITMAP_SECTORS ((FS_BITMAP_BYTES + 511) / 512)
+
+#define FS_SB_LBA     0
+#define FS_INODE_LBA  1
+#define FS_BITMAP_LBA (FS_INODE_LBA + FS_INODE_SECTORS)
+#define FS_DATA_LBA   (FS_BITMAP_LBA + FS_BITMAP_SECTORS)
+
 typedef struct {
     char name[FS_MAX_NAME];
     uint8_t used;
