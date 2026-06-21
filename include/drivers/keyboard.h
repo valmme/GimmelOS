@@ -108,6 +108,12 @@
 #define SC_F11         0x57
 #define SC_F12         0x58
 
+#define KEY_UP      1001
+#define KEY_DOWN    1002
+#define KEY_LEFT    1003
+#define KEY_RIGHT   1004
+#define KEY_RELEASE 0x80
+
 void keyboard_init(void);
 int  keyboard_getchar(void);
 int  keyboard_haskey(void);

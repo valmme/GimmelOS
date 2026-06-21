@@ -80,13 +80,11 @@ void game_update(int wid) {
 
     int c;
 
-    while ((c = keyboard_getchar_nonblocking())) {
-        if (c == 'w' || c == 'W') key_w = 1;
-        if (c == 's' || c == 'S') key_s = 1;
-        if (c == 'a' || c == 'A') key_a = 1;
-        if (c == 'd' || c == 'D') key_d = 1;
-        if (c == KEY_ESCAPE)      key_esc = 1;
-    }
+    if (keyboard_is_key_down(SC_W)) key_w = 1;
+    if (keyboard_is_key_down(SC_S)) key_s = 1;
+    if (keyboard_is_key_down(SC_A)) key_a = 1;
+    if (keyboard_is_key_down(SC_D)) key_d = 1;
+    if (keyboard_is_key_pressed(SC_ESC)) key_esc = 1;
 
     window_t* win = &wm.windows[wm.focused];
     win->wants_mouse_capture = 1;
@@ -194,7 +192,7 @@ void game_draw(int wid) {
                 255
             };
 
-            for (int lx = 0; lx < lines; lx += lines)
+            for (int lx = 0; lx < lines; lx++)
                 wm_draw_pixel((vec2){x + lx, y}, c);
         }
     }
