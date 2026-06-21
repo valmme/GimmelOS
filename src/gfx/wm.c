@@ -539,18 +539,15 @@ void wm_draw(int id) {
     wm98_draw_bevel(w->bounds, 1);
 
     rec title_bar = {
-        w->bounds.x + 3, w->bounds.y + 3,
-        w->bounds.w - 6, WM_TITLEBAR_H - 4
+        w->bounds.x + 2, w->bounds.y + 2,
+        w->bounds.w - 4, WM_TITLEBAR_H - 2
     };
-    
 
     gfx_color_t near_color = w->focused ? (gfx_color_t){ 16, 16, 200, 255 } : WM98_TITLE_INACTIVE;
     gfx_color_t far_color = w->focused ? (gfx_color_t){ 0, 0, 80, 255 } : (gfx_color_t){ 64, 64, 64, 255 };
 
-    vec2 origin = { title_bar.x, title_bar.y + title_bar.h / 2 };
-
     wm98_draw_dither_gradient(title_bar, near_color, far_color);
-    gfx_print(w->title, (vec2){ title_bar.x + 4, title_bar.y + 3 }, title_fg, title_bg);
+    gfx_print(w->title, (vec2){ title_bar.x + 4, title_bar.y + 2 }, title_fg, title_bg);
 
     rec rc = wm_btn_rect(w, 0);
     wm98_draw_bevel(rc, 1);
@@ -572,10 +569,10 @@ void wm_draw(int id) {
     if (w->minimized) return;
 
     rec body = {
-        w->bounds.x + 3,
+        w->bounds.x + 2,
         w->bounds.y + WM_TITLEBAR_H,
-        w->bounds.w - 6,
-        w->bounds.h - WM_TITLEBAR_H - 3
+        w->bounds.w - 4,
+        w->bounds.h - WM_TITLEBAR_H - 2
     };
     gfx_draw_fill_rec(body, w->bg);
 
@@ -583,8 +580,8 @@ void wm_draw(int id) {
 
     if (!w->maximized) {
         rec handle = {
-            w->bounds.x + (int32_t)w->bounds.w - WM_RESIZE_BORDER,
-            w->bounds.y + (int32_t)w->bounds.h - WM_RESIZE_BORDER,
+            w->bounds.x + (int32_t)w->bounds.w - 2 - WM_RESIZE_BORDER,
+            w->bounds.y + (int32_t)w->bounds.h - 2 - WM_RESIZE_BORDER,
             WM_RESIZE_BORDER,
             WM_RESIZE_BORDER
         };
