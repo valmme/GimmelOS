@@ -26,5 +26,5 @@ qemu-img create -f raw disk.img 64M
 ## Run OS
 
 ```sh
-qemu-system-i386 -cdrom build/gimmelos.iso -hda disk.img -m 32M
+qemu-system-i386 -cdrom build/gimmelos.iso -drive file=disk.img,format=raw,if=ide,index=0 -m 32M
 ```
