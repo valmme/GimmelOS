@@ -78,7 +78,7 @@ static void shell_print(const char* s, gfx_color_t color) {
     }
 }
 
-static void sp(const char* s)  { shell_print(s, C_TEXT);  }
+void sp(const char* s)  { shell_print(s, C_TEXT);  }
 static void spe(const char* s) { shell_print(s, C_ERROR); }
 
 static void read_command(const char* input);
@@ -231,7 +231,7 @@ static void cmd_info(void) {
     sp("============================");
 }
 
-static void cmd_lito(const char* args) {
+void cmd_lito(const char* args) {
     if (!args || !args[0]) { spe("lito: missing path"); return; }
 
     char fname[FS_MAX_NAME];

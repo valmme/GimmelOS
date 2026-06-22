@@ -275,106 +275,85 @@ static void wm_click_minimize(int id) {
     w->mouse_capture = 0;
 }
 
-void wm_handle_mouse(vec2 pos, uint8_t left) {
-
-    if (wm_hit_test(pos) == -1) {
-        wm.focused = -1;
-
-        for (int i = 0; i < wm.count; i++)
-            wm.windows[i].focused = 0;
+void wm_handle_mouse(mouse_state_t mouse) {
+    if (wm_hit_test(mouse.pos) == -1) {
+        if (mouse.left && !wm.prev_left) {
+            wm.focused = -1;
+            for (int i = 0; i < wm.count; i++) wm.windows[i].focused = 0;
+        }
     }
 
-    if (left && !wm.prev_left) {
-        int id = wm_hit_test(pos);
-
+    if (mouse.left && !wm.prev_left) {
+        int id = wm_hit_test(mouse.pos);
         if (id < 0) {
-            for (int i = 0; i < wm.count; i++) {
-                wm.windows[i].focused = 0;
-            }
-
+            for (int i = 0; i < wm.count; i++) wm.windows[i].focused = 0;
             wm.focused = -1;
-            return;
+        } else {
+            for (int i = 0; i < wm.count; i++) wm.windows[i].focused = 0;
+            wm_bring_to_front(id);
+            wm.focused = wm.count - 1;
+            window_t* w = &wm.windows[wm.focused];
+            w->focused = 1;
+
+            if (!w->minimized && !w->maximized && wm_hit_resize(wm.focused, mouse.pos)) {
+                w->resizing = 1;
+                w->resize_start.x = mouse.pos.x;
+                w->resize_start.y = mouse.pos.y;
+                w->resize_start.w = w->bounds.w;
+                w->resize_start.h = w->bounds.h;
+            } else if (wm_hit_titlebar(wm.focused, mouse.pos)) {
+                if (HIT(wm_btn_rect(w, 0), mouse.pos)) wm_click_close(wm.focused);
+                else if (HIT(wm_btn_rect(w, 1), mouse.pos)) wm_click_maximize(wm.focused);
+                else if (HIT(wm_btn_rect(w, 2), mouse.pos)) wm_click_minimize(wm.focused);
+                else {
+                    w->dragging = 1;
+                    w->drag_off.x = mouse.pos.x - w->bounds.x;
+                    w->drag_off.y = mouse.pos.y - w->bounds.y;
+                }
+            }
         }
+    }
 
-        for (int i = 0; i < wm.count; i++)
-            wm.windows[i].focused = 0;
-
+    if (mouse.right && !wm.prev_right) {
+        int id = wm_hit_test(mouse.pos);
         if (id >= 0) {
             wm_bring_to_front(id);
             wm.focused = wm.count - 1;
-
-            window_t* w = &wm.windows[wm.focused];
-            w->focused  = 1;
-
-            if (!w->minimized && !w->maximized && wm_hit_resize(wm.focused, pos)) {
-                w->resizing       = 1;
-                w->resize_start.x = pos.x;
-                w->resize_start.y = pos.y;
-                w->resize_start.w = w->bounds.w;
-                w->resize_start.h = w->bounds.h;
-            }
-
-            else if (wm_hit_titlebar(wm.focused, pos)) {
-                rec r_close = wm_btn_rect(w, 0);
-                rec r_max   = wm_btn_rect(w, 1);
-                rec r_min   = wm_btn_rect(w, 2);
-
-                if (HIT(r_close, pos)) wm_click_close(wm.focused);
-                else if (HIT(r_max,   pos)) wm_click_maximize(wm.focused);
-                else if (HIT(r_min,   pos)) wm_click_minimize(wm.focused);
-                else {
-                    w->dragging   = 1;
-                    w->drag_off.x = pos.x - w->bounds.x;
-                    w->drag_off.y = pos.y - w->bounds.y;
-                }
-            }
-
-            else if (!w->minimized && wm_hit_body(wm.focused, pos)) {
-                wm_handle_widgets_mouse(wm.focused, pos, left);
-            }
-        } 
-        
-        else {
-            wm.focused = -1;
+            wm.windows[wm.focused].focused = 1;
         }
     }
 
-    if (!left) {
+    if (wm.focused >= 0) {
+        wm_handle_widgets_mouse(wm.focused, mouse.pos, mouse.left);
+    }
+
+    if (!mouse.left) {
         for (int i = 0; i < wm.count; i++) {
             wm.windows[i].dragging = 0;
             wm.windows[i].resizing = 0;
         }
-    }
-
-    if (left) {
+    } 
+    
+    else {
         for (int i = 0; i < wm.count; i++) {
             window_t* w = &wm.windows[i];
-
             if (w->dragging && !w->maximized) {
-                w->bounds.x = pos.x - w->drag_off.x;
-                w->bounds.y = pos.y - w->drag_off.y;
+                w->bounds.x = mouse.pos.x - w->drag_off.x;
+                w->bounds.y = mouse.pos.y - w->drag_off.y;
             }
-
             if (w->resizing) {
-                int32_t new_w = (int32_t)w->resize_start.w + (pos.x - w->resize_start.x);
-                int32_t new_h = (int32_t)w->resize_start.h + (pos.y - w->resize_start.y);
-
+                int32_t new_w = (int32_t)w->resize_start.w + (mouse.pos.x - w->resize_start.x);
+                int32_t new_h = (int32_t)w->resize_start.h + (mouse.pos.y - w->resize_start.y);
                 if (new_w < WM_MIN_W) new_w = WM_MIN_W;
                 if (new_h < WM_MIN_H) new_h = WM_MIN_H;
-
                 w->bounds.w = (uint32_t)new_w;
                 w->bounds.h = (uint32_t)new_h;
             }
         }
-
-        if (wm.focused >= 0)
-            wm_handle_widgets_mouse(wm.focused, pos, left);
     }
 
-    if (!left && wm.focused >= 0)
-        wm_handle_widgets_mouse(wm.focused, pos, left);
-
-    wm.prev_left = left;
+    wm.prev_left = mouse.left;
+    wm.prev_right = mouse.right;
 }
 
 // widgets

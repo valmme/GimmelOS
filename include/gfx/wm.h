@@ -79,6 +79,7 @@ typedef struct {
     int focused;
 
     uint8_t prev_left;
+    uint8_t prev_right;
 } wm_t;
 
 extern wm_t wm;
@@ -92,7 +93,7 @@ void wm_destroy(int id);
 void wm_draw(int id);
 void wm_draw_all(void);
 
-void wm_handle_mouse(vec2 pos, uint8_t left);
+void wm_handle_mouse(mouse_state_t mouse);
 void wm_handle_widgets_mouse(int wid, vec2 pos, uint8_t left);
 void wm_handle_widgets_key(int wid, char c);
 void wm_bring_to_front(int id);

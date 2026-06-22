@@ -39,15 +39,6 @@ void kernel_main(uint32_t magic, uint32_t addr) {
     pitch = mbi->framebuffer_pitch;
 
     gfx_init((vec2){width, height}, pitch, framebuffer);
-
-    // info
-    serial_print("addr:   "); serial_print_hex((uint32_t)mbi->framebuffer_addr_low); serial_putchar('\n');
-    serial_print("width:  "); serial_print_uint(mbi->framebuffer_width);             serial_putchar('\n');
-    serial_print("height: "); serial_print_uint(mbi->framebuffer_height);            serial_putchar('\n');
-    serial_print("pitch:  "); serial_print_uint(mbi->framebuffer_pitch);             serial_putchar('\n');
-    serial_print("bpp:    "); serial_print_uint(mbi->framebuffer_bpp);               serial_putchar('\n');
-    serial_print("flags:  "); serial_print_hex(mbi->flags);                          serial_putchar('\n');
-
     gfx_render_frame();
 }
 
@@ -56,13 +47,13 @@ void gfx_render_frame() {
     mouse_init();
     wm_init();
 
-    wm_create_app("Shell", (rec){50, 50, 200, 200}, GFX_BLANK, shell_init, shell_update, shell_draw);
+    wm_create_app("I", (rec){50, 50, 200, 200}, GFX_BLANK, shell_init, shell_update, shell_draw);
 
     uint8_t prev_left = 0;
 
     while (1) {
         io_poll();
-        wm_handle_mouse(mouse.pos, mouse.left);
+        wm_handle_mouse(mouse);
 
         if (mouse.left && !prev_left) {
             int id = wm_hit_test(mouse.pos);

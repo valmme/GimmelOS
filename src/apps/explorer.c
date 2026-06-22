@@ -1,4 +1,5 @@
 #include "apps/explorer/explorer.h"
+#include "apps/shell.h"
 #include "fs.h"
 #include "gfx/wm.h"
 #include "apps/explorer/icons.h"
@@ -20,6 +21,12 @@
 #define ICON_TEXT_GAP   4
 #define TEXT_X_OFFSET   (ICON_PAD_X + ICON_W + ICON_TEXT_GAP)
 
+enum menu_state_e {
+    NONE,
+    CONTEXT,
+    INPUT
+};
+
 extern mouse_state_t mouse;
 extern wm_t wm;
 
@@ -28,7 +35,13 @@ uint32_t current_path;
 static char file_names[FS_MAX_INODES][FS_MAX_NAME];
 static int file_count = 0;
 static int selected_idx = 0;
+
+static int prev_right = 0;
 static int prev_left = 0;
+
+static int menu_open = 0;
+static int menu_x, menu_y;
+static int menu_state = NONE;
 
 static int ends_with(const char *str, const char *ext) {
     int slen = kstrlen(str);
@@ -87,10 +100,17 @@ static void activate_selected(void) {
     strip_dir_slash(lookup_name);
 
     int id = fs_find_in(lookup_name, current_path);
-    if (id >= 0 && fs_is_dir(id)) {
-        current_path = id;
-        selected_idx = 0;
-        refresh_file_list();
+    if (id >= 0) {
+        if (fs_is_dir(id)) {
+            current_path = id;
+            selected_idx = 0;
+            refresh_file_list();
+        }
+
+        else {
+            sp(lookup_name);
+            cmd_lito(lookup_name);
+        }
     }
 }
 
@@ -140,8 +160,7 @@ void explorer_update(int wid) {
         for (int i = 0; i < file_count; i++) {
             if (item_y + ITEM_H > (int32_t)canvas.h) break;
 
-            if (rel_x >= 2 && rel_x < (int32_t)canvas.w - 2 &&
-                rel_y >= item_y && rel_y < item_y + ITEM_H) {
+            if (rel_x >= 2 && rel_x < (int32_t)canvas.w - 2 && rel_y >= item_y && rel_y < item_y + ITEM_H) {
                 hit_idx = i;
                 break;
             }
@@ -153,8 +172,37 @@ void explorer_update(int wid) {
             if (hit_idx == selected_idx) activate_selected();
             else selected_idx = hit_idx;
         }
+
+        if (hit_idx >= 0 && mouse.right && !wm.prev_right) {
+            selected_idx = hit_idx;
+            menu_open = 1;
+            menu_x = mouse.pos.x;
+            menu_y = mouse.pos.y;
+        }
+
+        if (menu_open) {
+            if (mouse.left && !prev_left) {
+                if (mouse.pos.x > menu_x && mouse.pos.x < menu_x + 100) {
+                    if (kstrcmp(file_names[selected_idx], "..") != 0) {
+                        char name[FS_MAX_NAME];
+                        kstrncpy(name, file_names[selected_idx], FS_MAX_NAME);
+                        strip_dir_slash(name);
+
+                        int id = fs_find_in(name, current_path);
+
+                        if (fs_is_dir(id)) fs_rmdir(name, current_path);
+                        else fs_rm(name, current_path);
+                        
+                        refresh_file_list();
+                    }
+                }
+            }
+
+            menu_open = 0;
+        }
     }
 
+    prev_right = mouse.right;
     prev_left = mouse.left;
 }
 
@@ -237,6 +285,13 @@ void explorer_draw(int wid) {
             wm_draw_text(display_name, (vec2){TEXT_X_OFFSET, text_y}, text_color, item_bg);
             item_y += ITEM_H;
         }
+    }
+
+    if (menu_open) {
+        wm_draw_fill_rec((rec){menu_x, menu_y, 100, 60}, (gfx_color_t){60, 60, 60, 255});
+        wm_draw_rec((rec){menu_x, menu_y, 100, 60}, GFX_WHITE);
+        wm_draw_text("Delete", (vec2){menu_x + 5, menu_y + 5}, GFX_WHITE, (gfx_color_t){60, 60, 60, 255});
+        wm_draw_text("New Folder", (vec2){menu_x + 5, menu_y + 35}, GFX_WHITE, (gfx_color_t){60, 60, 60, 255});
     }
 
     wm_end_draw();
