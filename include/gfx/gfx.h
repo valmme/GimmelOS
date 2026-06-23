@@ -90,10 +90,10 @@ void gfx_put_pixel(uint32_t x, uint32_t y, gfx_color_t color);
 void gfx_draw_cursor(mouse_state_t mouse);
 
 // text
-void gfx_putchar_ex(char c, vec2 pos, gfx_color_t fg, gfx_color_t bg, int scale);
-void gfx_putchar(char c, vec2 pos, gfx_color_t fg, gfx_color_t bg);
-void gfx_print_ex(const char* str, vec2 pos, gfx_color_t fg, gfx_color_t bg, int scale);
-void gfx_print(const char* str, vec2 pos, gfx_color_t fg, gfx_color_t bg);
+void gfx_putchar_ex(char c, vec2 pos, gfx_color_t fg, int scale);
+void gfx_putchar(char c, vec2 pos, gfx_color_t fg);
+void gfx_print_ex(const char* str, vec2 pos, gfx_color_t fg, int scale);
+void gfx_print(const char* str, vec2 pos, gfx_color_t fg);
 
 // shapes
 void gfx_draw_line(vec2 a, vec2 b, gfx_color_t color);

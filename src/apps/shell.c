@@ -383,7 +383,7 @@ void shell_draw(int wid) {
     for (int i = 0; i < visible; i++) {
         int idx = scroll_top + i;
         if (idx >= line_count) break;
-        wm_draw_text(lines[idx].text, (vec2){PADDING_X, PADDING_Y + i * LINE_H}, lines[idx].color, C_BG);
+        wm_draw_text(lines[idx].text, (vec2){PADDING_X, PADDING_Y + i * LINE_H}, lines[idx].color);
     }
 
     int sep_y = ch - input_area_h;
@@ -392,13 +392,13 @@ void shell_draw(int wid) {
     int py = sep_y + PADDING_Y / 2;
     int px = PADDING_X;
 
-    wm_draw_text(cwd_path, (vec2){px, py}, C_PATH, C_BG);
+    wm_draw_text(cwd_path, (vec2){px, py}, C_PATH);
     px += kstrlen(cwd_path) * CHAR_W;
 
-    wm_draw_text(" > ", (vec2){px, py}, C_PROMPT, C_BG);
+    wm_draw_text(" > ", (vec2){px, py}, C_PROMPT);
     px += 3 * CHAR_W;
 
-    wm_draw_text(input_buf, (vec2){px, py}, C_INPUT, C_BG);
+    wm_draw_text(input_buf, (vec2){px, py}, C_INPUT);
     px += input_len * CHAR_W;
 
     wm_draw_fill_rec((rec){px, py, 2, CHAR_H}, C_CURSOR);

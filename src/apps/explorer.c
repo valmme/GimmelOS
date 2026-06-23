@@ -418,7 +418,7 @@ void explorer_draw(int wid) {
     kstrncat(path_str, fs_path, 128);
 
     wm_draw_fill_rec((rec){0, 0, canvas.w, 16}, COLOR_PATH_BG);
-    wm_draw_text(path_str, (vec2){4, 4}, COLOR_TEXT, COLOR_PATH_BG);
+    wm_draw_text(path_str, (vec2){4, 4}, COLOR_TEXT);
 
     wm_draw_fill_rec((rec){0, 16, canvas.w, TOOLBAR_H + 4}, COLOR_TOOLBAR_BG);
     draw_bevel_rec((rec){0, 16, canvas.w, TOOLBAR_H + 4}, 1);
@@ -429,7 +429,7 @@ void explorer_draw(int wid) {
     int item_y = ITEM_Y0;
 
     if (file_count == 0) {
-        wm_draw_text("Empty Directory", (vec2){10, item_y}, COLOR_TEXT, COLOR_BG);
+        wm_draw_text("Empty Directory", (vec2){10, item_y}, COLOR_TEXT);
     }
 
     else {
@@ -484,7 +484,7 @@ void explorer_draw(int wid) {
             }
 
             int text_y = item_y + (ITEM_H - FB_CHAR_H) / 2;
-            wm_draw_text(display_name, (vec2){item_rec.x + TEXT_X_OFFSET, text_y}, text_color, item_bg);
+            wm_draw_text(display_name, (vec2){item_rec.x + TEXT_X_OFFSET, text_y}, text_color);
             item_y += ITEM_H;
         }
     }
@@ -510,7 +510,7 @@ void explorer_draw(int wid) {
             gfx_color_t row_fg = (r == hover_row) ? COLOR_TEXT_SELECTED : COLOR_TEXT;
 
             wm_draw_fill_rec(row_rect, row_bg);
-            wm_draw_text(labels[r], (vec2){menu_x + 10, menu_y + 2 + r * MENU_ROW_H + 9}, row_fg, row_bg);
+            wm_draw_text(labels[r], (vec2){menu_x + 10, menu_y + 2 + r * MENU_ROW_H + 9}, row_fg);
 
             if (r < MENU_ROWS - 1) {
                 wm_draw_line(
@@ -531,12 +531,12 @@ void explorer_draw(int wid) {
 
         const char* label = mode == MODE_CREATE_FILE   ? "New file name:" : mode == MODE_CREATE_FOLDER ? "New folder name:" : "Rename to:";
 
-        wm_draw_text(label, (vec2){box.x + 6, box.y + 8}, COLOR_TEXT, COLOR_FACE);
+        wm_draw_text(label, (vec2){box.x + 6, box.y + 8}, COLOR_TEXT);
 
         rec input_rect = {box.x + 6, box.y + 22, box.w - 12, 18};
         wm_draw_fill_rec(input_rect, COLOR_SHADOW);
         draw_bevel_rec(input_rect, 0);
-        wm_draw_text(input_buffer, (vec2){input_rect.x + 2, input_rect.y + 2}, COLOR_TEXT_SELECTED, COLOR_SHADOW);
+        wm_draw_text(input_buffer, (vec2){input_rect.x + 2, input_rect.y + 2}, COLOR_TEXT_SELECTED);
     }
 
     wm_end_draw();

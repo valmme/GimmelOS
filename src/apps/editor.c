@@ -172,7 +172,7 @@ static void draw_int(int n, vec2 pos, gfx_color_t fg, gfx_color_t bg) {
     }
 
     tmp[i] = 0;
-    wm_draw_text(tmp, pos, fg, bg);
+    wm_draw_text(tmp, pos, fg);
 }
 
 static void editor_draw_bevel(rec r, int raised) {
@@ -216,7 +216,7 @@ static void rc_emit(render_ctx_t* rc, char c) {
         int px = rc->text_x0 + rc->cur_col * CHAR_W * SCALE;
         int py = HEADER_H + EDITOR_PADDING_Y + rel * EDITOR_LINE_HEIGHT;
         if (px >= rc->text_x0 && px + CHAR_W * SCALE <= rc->canvas_w)
-            wm_putchar_ex(c, (vec2){px, py}, rc->cur_color, C_BG, SCALE);
+            wm_putchar_ex(c, (vec2){px, py}, rc->cur_color, SCALE);
     }
 
     rc->cur_col++;
@@ -397,11 +397,11 @@ void editor_draw(int wid) {
 
     {
         int ty = (TOOLBAR_H - EDITOR_LINE_HEIGHT) / 2;
-        wm_draw_text_ex(EDITOR_NAME "  |  ^S Save", (vec2){EDITOR_PADDING_X, ty}, C_TEXT, C_TOOLBAR, SCALE);
+        wm_draw_text_ex(EDITOR_NAME "  |  ^S Save", (vec2){EDITOR_PADDING_X, ty}, C_TEXT, SCALE);
 
         const char* lang = is_c_file(current_path_display) ? "C/C++" : "Plain";
         int lw = kstrlen(lang) * CHAR_W * SCALE;
-        wm_draw_text_ex(lang, (vec2){cw - lw - EDITOR_PADDING_X, ty}, C_LINENUM, C_TOOLBAR, SCALE);
+        wm_draw_text_ex(lang, (vec2){cw - lw - EDITOR_PADDING_X, ty}, C_LINENUM, SCALE);
     }
 
     wm_draw_fill_rec((rec){0, ch - STATUSBAR_H, cw, STATUSBAR_H}, C_STATUSBAR);
@@ -421,8 +421,8 @@ void editor_draw(int wid) {
         lc[li] = 0;
         int lcw = kstrlen(lc) * CHAR_W * SCALE;
 
-        wm_draw_text_ex(lc, (vec2){cw - lcw - EDITOR_PADDING_X, sy}, C_LINENUM, C_STATUSBAR, SCALE);
-        wm_draw_text_ex(current_path_display, (vec2){EDITOR_PADDING_X, sy}, C_TEXT, C_STATUSBAR, SCALE);
+        wm_draw_text_ex(lc, (vec2){cw - lcw - EDITOR_PADDING_X, sy}, C_LINENUM, SCALE);
+        wm_draw_text_ex(current_path_display, (vec2){EDITOR_PADDING_X, sy}, C_TEXT, SCALE);
     }
 
     int sb_x = cw - 8;

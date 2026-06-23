@@ -518,7 +518,7 @@ static void wm_draw_widget(window_t* w, widget_t* wg) {
 
     switch (wg->type) {
         case WIDGET_LABEL:
-            gfx_print(wg->text, (vec2){r.x + 2, r.y + 2}, wg->fg, WM98_FACE);
+            gfx_print(wg->text, (vec2){r.x + 2, r.y + 2}, wg->fg);
             break;
 
         case WIDGET_BUTTON: {
@@ -529,14 +529,14 @@ static void wm_draw_widget(window_t* w, widget_t* wg) {
 
             int tx = r.x + ((int32_t)r.w - (int32_t)kstrlen(wg->text) * FB_CHAR_W) / 2;
             int ty = r.y + ((int32_t)r.h - FB_CHAR_H) / 2;
-            gfx_print(wg->text, (vec2){tx, ty}, WM98_BLACK, face);
+            gfx_print(wg->text, (vec2){tx, ty}, WM98_BLACK);
             break;
         }
 
         case WIDGET_INPUT: {
             wm98_draw_bevel(r, 0);
             gfx_draw_fill_rec((rec){r.x + 2, r.y + 2, r.w - 4, r.h - 4}, WM98_HILIGHT);
-            gfx_print(wg->text, (vec2){r.x + 4, r.y + 4}, WM98_BLACK, WM98_HILIGHT);
+            gfx_print(wg->text, (vec2){r.x + 4, r.y + 4}, WM98_BLACK);
 
             if (wg->focused) {
                 int cx = r.x + 4 + kstrlen(wg->text) * FB_CHAR_W;
@@ -569,7 +569,7 @@ void wm_draw(int id) {
     gfx_color_t far_color = w->focused ? (gfx_color_t){ 0, 0, 80, 255 } : (gfx_color_t){ 64, 64, 64, 255 };
 
     wm98_draw_dither_gradient(title_bar, near_color, far_color);
-    gfx_print(w->title, (vec2){ title_bar.x + 4, title_bar.y + 5 }, title_fg, title_bg);
+    gfx_print(w->title, (vec2){ title_bar.x + 4, title_bar.y + 5 }, title_fg);
 
     rec rc = wm_btn_rect(w, 0);
     wm98_draw_bevel(rc, 1);
@@ -681,32 +681,33 @@ void wm_draw_line(vec2 a, vec2 b, gfx_color_t color) {
     }
 }
 
-void wm_putchar_ex(char c, vec2 pos, gfx_color_t fg, gfx_color_t bg, int scale) {
+void wm_putchar_ex(char c, vec2 pos, gfx_color_t fg, int scale) {
     const uint8_t* glyph = font[(uint8_t)c];
 
     for (int row = 0; row < 8; row++) {
         uint8_t bits = glyph[row];
 
         for (int col = 0; col < 8; col++) {
-            gfx_color_t color = (bits & (0x80 >> (7 - col))) ? fg : bg;
-            
+            int is_fg = bits & (0x80 >> (7 - col));
+            if (!is_fg) continue;
+
             for (int sy = 0; sy < scale; sy++) {
                 for (int sx = 0; sx < scale; sx++) {
                     gfx_put_pixel_clipped((vec2){
                         current_canvas.x + pos.x + col * scale + sx,
                         current_canvas.y + pos.y + row * scale + sy
-                    }, color);
+                    }, fg);
                 }
             }
         }
     }
 }
 
-void wm_putchar(char c, vec2 pos, gfx_color_t fg, gfx_color_t bg) {
-    wm_putchar_ex(c, pos, fg, bg, 1);
+void wm_putchar(char c, vec2 pos, gfx_color_t fg) {
+    wm_putchar_ex(c, pos, fg, 1);
 }
 
-void wm_draw_text_ex(const char* str, vec2 pos, gfx_color_t fg, gfx_color_t bg, int scale) {
+void wm_draw_text_ex(const char* str, vec2 pos, gfx_color_t fg, int scale) {
     int start_x = pos.x;
     while (*str) {
         if (*str == '\n') {
@@ -715,7 +716,7 @@ void wm_draw_text_ex(const char* str, vec2 pos, gfx_color_t fg, gfx_color_t bg, 
         } 
         
         else {
-            wm_putchar_ex(*str, pos, fg, bg, scale);
+            wm_putchar_ex(*str, pos, fg, scale);
             pos.x += FB_CHAR_W * scale;
         }
 
@@ -723,8 +724,8 @@ void wm_draw_text_ex(const char* str, vec2 pos, gfx_color_t fg, gfx_color_t bg, 
     }
 }
 
-void wm_draw_text(const char* str, vec2 pos, gfx_color_t fg, gfx_color_t bg) {
-    wm_draw_text_ex(str, pos, fg, bg, 1);
+void wm_draw_text(const char* str, vec2 pos, gfx_color_t fg) {
+    wm_draw_text_ex(str, pos, fg, 1);
 }
 
 void wm_draw_circle(vec2 pos, int32_t radius, gfx_color_t color) {

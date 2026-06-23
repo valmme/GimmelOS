@@ -64,27 +64,34 @@ void gfx_put_pixel(uint32_t x, uint32_t y, gfx_color_t color) {
     backbuffer[y * width + x] = gfx_pack_color(color);
 }
 
-void gfx_putchar_ex(char c, vec2 pos, gfx_color_t fg, gfx_color_t bg, int scale) {
+void gfx_putchar_ex(char c, vec2 pos, gfx_color_t fg, int scale) {
     const uint8_t* glyph = font[(uint8_t)c];
+
     for (int row = 0; row < 8; row++) {
         uint8_t bits = glyph[row];
 
         for (int col = 0; col < 8; col++) {
-            gfx_color_t color = (bits & (0x80 >> (7 - col))) ? fg : bg;
+            int is_fg = bits & (0x80 >> (7 - col));
+            if (!is_fg) continue;
+
             for (int sy = 0; sy < scale; sy++) {
                 for (int sx = 0; sx < scale; sx++) {
-                    gfx_put_pixel(pos.x + col * scale + sx, pos.y + row * scale + sy, color);
+                    gfx_put_pixel(
+                        pos.x + col * scale + sx,
+                        pos.y + row * scale + sy,
+                        fg
+                    );
                 }
             }
         }
     }
 }
 
-void gfx_putchar(char c, vec2 pos, gfx_color_t fg, gfx_color_t bg) {
-    gfx_putchar_ex(c, pos, fg, bg, 1);
+void gfx_putchar(char c, vec2 pos, gfx_color_t fg) {
+    gfx_putchar_ex(c, pos, fg, 1);
 }
 
-void gfx_print_ex(const char* str, vec2 pos, gfx_color_t fg, gfx_color_t bg, int scale) {
+void gfx_print_ex(const char* str, vec2 pos, gfx_color_t fg, int scale) {
     int start_x = pos.x;
     while (*str) {
         if (*str == '\n') {
@@ -93,15 +100,15 @@ void gfx_print_ex(const char* str, vec2 pos, gfx_color_t fg, gfx_color_t bg, int
         } 
         
         else {
-            gfx_putchar_ex(*str, pos, fg, bg, scale);
+            gfx_putchar_ex(*str, pos, fg, scale);
             pos.x += FB_CHAR_W * scale;
         }
         str++;
     }
 }
 
-void gfx_print(const char* str, vec2 pos, gfx_color_t fg, gfx_color_t bg) {
-    gfx_print_ex(str, pos, fg, bg, 1);
+void gfx_print(const char* str, vec2 pos, gfx_color_t fg) {
+    gfx_print_ex(str, pos, fg, 1);
 }
 
 void gfx_draw_line(vec2 a, vec2 b, gfx_color_t color) {

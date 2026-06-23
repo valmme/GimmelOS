@@ -7,10 +7,6 @@
 static uint8_t mouse_buf[3];
 static int mouse_buf_pos = 0;
 
-static vec2 pending_vec = {0, 0};
-static uint8_t pending_flags = 0;
-static int mouse_ready = 0;
-
 mouse_state_t mouse = {0};
 
 uint8_t inb(uint16_t port) {
