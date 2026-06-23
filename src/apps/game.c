@@ -2,7 +2,6 @@
 #include "lib/kstring.h"
 #include "gfx/gfx.h"
 #include "apps/game/textures.h"
-#include "kernel/cpu/io.h"
 #include "apps/game/game.h"
 
 #define MAP_W 8

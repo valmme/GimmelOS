@@ -87,4 +87,8 @@ static inline void* kmemcpy(void* dest, const void* src, unsigned int n) {
     return dest;
 }
 
+static inline int ksprintf(char* out, const char* fmt, ...) {
+    
+}
+
 #endif // GOS_KSTRING_H

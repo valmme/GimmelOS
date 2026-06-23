@@ -221,6 +221,7 @@ window_t* wm_get_by_id(int id) {
 
 void wm_destroy(int id) {
     if (id < 0 || id >= wm.count) return;
+    wm.windows[id].on_destroy(id);
     wm.windows[id].visible = 0;
 }
 
@@ -726,6 +727,21 @@ void wm_draw_text_ex(const char* str, vec2 pos, gfx_color_t fg, int scale) {
 
 void wm_draw_text(const char* str, vec2 pos, gfx_color_t fg) {
     wm_draw_text_ex(str, pos, fg, 1);
+}
+
+void wm_draw_int(int n, vec2 pos, gfx_color_t fg) {
+    char tmp[12];
+    int i = 0;
+
+    if (n == 0) { tmp[i++] = '0'; }
+    else {
+        int rev = 0, cnt = 0, x = n;
+        while (x > 0) { rev = rev * 10 + x % 10; x /= 10; cnt++; }
+        for (int j = 0; j < cnt; j++) { tmp[i++] = '0' + (rev % 10); rev /= 10; }
+    }
+
+    tmp[i] = 0;
+    wm_draw_text(tmp, pos, fg);
 }
 
 void wm_draw_circle(vec2 pos, int32_t radius, gfx_color_t color) {

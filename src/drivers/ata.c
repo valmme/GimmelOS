@@ -1,6 +1,5 @@
 #include "drivers/ata/ata.h"
 #include "drivers/serial.h"
-#include "kernel/cpu/io.h"
 
 static int ata_wait(uint8_t set_mask, uint8_t clear_mask) {
     for (int i = 0; i < 1000000; i++) {

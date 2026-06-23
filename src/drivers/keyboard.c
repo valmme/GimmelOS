@@ -1,5 +1,4 @@
 #include "drivers/keyboard.h"
-#include "kernel/cpu/io.h"
 
 #define KBD_QUEUE_SIZE 32
 

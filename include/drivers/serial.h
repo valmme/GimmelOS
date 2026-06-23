@@ -1,7 +1,7 @@
 #ifndef GOS_SERIAL_H
 #define GOS_SERIAL_H
 
-#include "kernel/cpu/io.h"
+#include "kernel/io.h"
 
 static void serial_init(void) {
     outb(0x3F8 + 1, 0x00);

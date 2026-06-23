@@ -1,4 +1,4 @@
-#include "kernel/cpu/io.h"
+#include "kernel/io.h"
 #include "drivers/keyboard.h"
 #include "gfx/gfx.h"
 

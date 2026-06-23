@@ -122,6 +122,7 @@ void wm_putchar_ex(char c, vec2 pos, gfx_color_t fg, int scale);
 void wm_putchar(char c, vec2 pos, gfx_color_t fg);
 void wm_draw_text_ex(const char* str, vec2 pos, gfx_color_t fg, int scale);
 void wm_draw_text(const char* str, vec2 pos, gfx_color_t fg);
+void wm_draw_int(int n, vec2 pos, gfx_color_t fg);
 void wm_draw_circle(vec2 pos, int32_t radius, gfx_color_t color);
 void wm_draw_fill_circle(vec2 pos, int32_t radius, gfx_color_t color);
 void wm_draw_texture(const uint32_t* tex, vec2 pos, vec2 size);

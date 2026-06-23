@@ -1,8 +1,6 @@
 #include "gfx/gfx.h"
 #include "gfx/wm.h"
 #include "gfx/icons.h"
-#include "kernel/cpu/io.h"
-
 
 uint32_t* framebuffer;
 uint32_t width;

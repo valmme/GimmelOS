@@ -1,4 +1,4 @@
-#include "kernel/cpu/io.h"
+#include "kernel/io.h"
 #include "gfx/gfx.h"
 #include "drivers/serial.h"
 
@@ -7,6 +7,9 @@
 
 #include "apps/game/game.h"
 #include "apps/shell.h"
+#include "apps/debug.h"
+
+uint8_t debug_created = 0;
 
 void shell_run(void);
 
@@ -42,6 +45,9 @@ void kernel_main(uint32_t magic, uint32_t addr) {
     gfx_render_frame();
 }
 
+void debug_destroy(int wid) {
+    debug_created = 0;
+}
 
 void gfx_render_frame() {
     mouse_init();
@@ -50,6 +56,7 @@ void gfx_render_frame() {
     wm_create_app("Shell", (rec){50, 50, 200, 200}, GFX_BLANK, shell_init, shell_update, shell_draw);
     wm.windows[0].focused = 1;
 
+    uint8_t debug_id = 0;
     uint8_t prev_left = 0;
 
     while (1) {
@@ -72,6 +79,12 @@ void gfx_render_frame() {
                         w->mouse_capture = 1;
                 }
             }
+        }
+
+        if (!debug_created && keyboard_is_key_down(SC_CTRL) && keyboard_is_key_pressed(SC_E)) {
+            debug_created = 1;
+            debug_id = wm_create_app("Debug", (rec){100, 100, 200, 200}, GFX_BLACK, debug_init, debug_update, debug_draw);
+            wm.windows[debug_id].on_destroy = debug_destroy;
         }
 
         prev_left = mouse.left;

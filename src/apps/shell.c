@@ -6,6 +6,7 @@
 
 #include "apps/game/game.h"
 #include "apps/editor.h"
+#include "apps/debug.h"
 #include "apps/explorer/explorer.h"
 
 #define CHAR_W     8
@@ -87,26 +88,32 @@ static void cpuid_call(uint32_t code, uint32_t* a, uint32_t* b, uint32_t* c, uin
     __asm__ volatile("cpuid" : "=a"(*a),"=b"(*b),"=c"(*c),"=d"(*d) : "a"(code));
 }
 
-static void cmd_help(void) {
-    sp("Commands:");
-    sp(" - help      - commands list");
-    sp(" - clear     - clear console");
-    sp(" - echo      - print text in console");
-    sp(" - info      - info about PC");
-    sp(" - pwd       - outputs the current path");
-    sp(" - ls        - list of files in directory");
-    sp(" - cd        - change directory");
-    sp(" - cat       - output file content");
-    sp(" - wr        - write line into file");
-    sp(" - run       - run shell file");
-    sp(" - mk     ");
-    sp(" - mkdir");
-    sp(" - rm");
-    sp(" - rmdir");
-    sp(" - lito [path]  - open editor");
-    sp(" - wolfenstein (open the game)");
-    sp(" - reboot");
-    sp(" - halt");
+static void cmd_help(const char* args) {
+    if (args && kstrcmp(args, "2") == 0) {
+        sp("Commands (page 2):");
+        sp(" - cat       - output file content");
+        sp(" - wr        - write line into file");
+        sp(" - run       - run shell file");
+        sp(" - mk");
+        sp(" - mkdir");
+        sp(" - rm");
+        sp(" - rmdir");
+        sp(" - lito [path]  - open editor");
+        sp(" - wolfenstein (open the game)");
+        sp(" - reboot");
+        sp(" - halt");
+        sp("Commands:");
+        sp(" - help      - commands list");
+        sp(" - clear     - clear console");
+        sp(" - echo      - print text in console");
+        sp(" - info      - info about PC");
+        sp(" - pwd       - outputs the current path");
+        sp(" - ls        - list of files in directory");
+        sp(" - cd        - change directory");
+
+        sp("");
+        sp("Type 'help 2' to see second page of commands.");
+    }
 }
 
 static void cmd_cd(const char* args) {
@@ -249,6 +256,10 @@ static void cmd_explorer(void) {
     wm_create_app("Explorer", (rec){100, 100, 500, 350}, GFX_BLACK, explorer_init, explorer_update, explorer_draw);
 }
 
+static void cmd_debug(void) {
+    wm_create_app("Debug", (rec){100, 100, 200, 200}, GFX_BLACK, debug_init, debug_update, debug_draw);
+}
+
 static void run_gim(const char* args) {
     if (!args || !args[0]) { spe("run: missing path"); return; }
 
@@ -297,7 +308,7 @@ static void read_command(const char* input) {
     kstrncpy(echo + ei, input, LINE_BUF_W - ei);
     push_line(echo, C_PROMPT);
 
-    if      (CMD_IS("help"))        cmd_help();
+    if      (CMD_IS("help"))        cmd_help(args);
     else if (CMD_IS("clear"))       { line_count = 0; scroll_top = 0; }
     else if (CMD_IS("echo"))        sp(args);
     else if (CMD_IS("info"))        cmd_info();
@@ -314,6 +325,7 @@ static void read_command(const char* input) {
     else if (CMD_IS("cat"))         cmd_cat(args);
     else if (CMD_IS("run"))         run_gim(args);
     else if (CMD_IS("explorer"))    cmd_explorer();
+    else if (CMD_IS("debug"))       cmd_debug();
     else if (CMD_IS("wolfenstein")) cmd_wolfenstein();
     else {
         char tmp[LINE_BUF_W];

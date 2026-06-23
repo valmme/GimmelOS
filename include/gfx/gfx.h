@@ -1,7 +1,7 @@
 #ifndef GOS_GFX_H
 #define GOS_GFX_H
 
-#include "kernel/cpu/io.h"
+#include "kernel/io.h"
 #include "lib/types.h"
 #include "wm.h"
 
