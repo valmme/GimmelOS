@@ -85,6 +85,7 @@ void gfx_init(vec2 res, uint32_t p, uint32_t* fb);
 // basic
 void gfx_begin_frame(gfx_color_t color);
 void gfx_end_frame(void);
+void gfx_paint_startup(void);
 void gfx_paint_desktop(void);
 void gfx_put_pixel(uint32_t x, uint32_t y, gfx_color_t color);
 void gfx_draw_cursor(mouse_state_t mouse);
@@ -100,7 +101,7 @@ void gfx_draw_line(vec2 a, vec2 b, gfx_color_t color);
 void gfx_draw_rec(rec r, gfx_color_t color);
 void gfx_draw_fill_rec(rec r, gfx_color_t color);
 
-void gfx_draw_texture(const uint32_t* tex, vec2 pos, vec2 size);
+void gfx_draw_texture(const uint32_t* tex, vec2 pos, vec2 src_size, vec2 dst_size);
 
 // window renderer
 void gfx_set_clip(rec r);

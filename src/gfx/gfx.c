@@ -1,6 +1,7 @@
 #include "gfx/gfx.h"
 #include "gfx/wm.h"
 #include "gfx/icons.h"
+#include "gfx/startup.h"
 
 uint32_t* framebuffer;
 uint32_t width;
@@ -56,6 +57,10 @@ void gfx_end_frame(void) {
 void gfx_paint_desktop(void) {
     rec screen_rec = {0, 0, width, height};
     wm98_draw_diagonal_dither_gradient(screen_rec, desktop_color_top_left, desktop_color_bottom_right);   
+}
+
+void gfx_paint_startup(void) {
+    gfx_draw_texture(startup_logo, (vec2){0, 0}, (vec2){LOGO_W, LOGO_H}, (vec2){width, height});
 }
 
 void gfx_put_pixel(uint32_t x, uint32_t y, gfx_color_t color) {
@@ -200,22 +205,29 @@ void gfx_draw_cursor(mouse_state_t mouse) {
     }
 }
 
-void gfx_draw_texture(const uint32_t* tex, vec2 pos, vec2 size) {
-    for (uint32_t row = 0; row < size.y; row++) {
-        for (uint32_t col = 0; col < size.x; col++) {
-            uint32_t packed = tex[row * size.x + col];
+void gfx_draw_texture(const uint32_t* tex, vec2 pos, vec2 src_size, vec2 dst_size) {
+    int32_t start_x = pos.x;
+    int32_t start_y = pos.y;
+    int32_t end_x = start_x + (int32_t)dst_size.x;
+    int32_t end_y = start_y + (int32_t)dst_size.y;
 
-            uint8_t a = (packed >> 24) & 0xFF;
+    if (end_x > (int32_t)width)  end_x = (int32_t)width;
+    if (end_y > (int32_t)height) end_y = (int32_t)height;
+    if (start_x < 0) start_x = 0;
+    if (start_y < 0) start_y = 0;
+
+    for (int32_t y = start_y; y < end_y; y++) {
+        uint32_t* row_ptr = &backbuffer[y * width];
+        uint32_t src_y = ((y - pos.y) * (uint32_t)src_size.y) / (uint32_t)dst_size.y;
+
+        for (int32_t x = start_x; x < end_x; x++) {
+            uint32_t src_x = ((x - pos.x) * (uint32_t)src_size.x) / (uint32_t)dst_size.x;
+            uint32_t tex_pixel = tex[src_y * (uint32_t)src_size.x + src_x];
+
+            uint8_t a = (tex_pixel >> 24) & 0xFF;
             if (a == 0) continue;
 
-            gfx_color_t color = {
-                .r = (packed >> 16) & 0xFF,
-                .g = (packed >> 8)  & 0xFF,
-                .b =  packed        & 0xFF,
-                .a = a
-            };
-
-            gfx_put_pixel(pos.x + col, pos.y + row, color);
+            row_ptr[x] = tex_pixel;
         }
     }
 }

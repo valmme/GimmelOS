@@ -13,9 +13,9 @@ void debug_draw(int wid) {
     wm_draw_text("CX: ", (vec2){5,  5}, GFX_WHITE); wm_draw_int(mouse.pos.x, (vec2){30,  5}, GFX_WHITE);
     wm_draw_text("CY: ", (vec2){5, 15}, GFX_WHITE); wm_draw_int(mouse.pos.y, (vec2){30, 15}, GFX_WHITE);
 
-    wm_draw_text("L: ", (vec2){5, 30}, GFX_WHITE); wm_draw_int(mouse.left,   (vec2){15, 30}, GFX_WHITE);
-    wm_draw_text("M: ", (vec2){5, 40}, GFX_WHITE); wm_draw_int(mouse.middle, (vec2){15, 40}, GFX_WHITE);
-    wm_draw_text("R: ", (vec2){5, 50}, GFX_WHITE); wm_draw_int(mouse.right,  (vec2){15, 50}, GFX_WHITE);
+    wm_draw_text("L: ", (vec2){5, 30}, GFX_WHITE); wm_draw_int(mouse.left,   (vec2){20, 30}, GFX_WHITE);
+    wm_draw_text("M: ", (vec2){5, 40}, GFX_WHITE); wm_draw_int(mouse.middle, (vec2){20, 40}, GFX_WHITE);
+    wm_draw_text("R: ", (vec2){5, 50}, GFX_WHITE); wm_draw_int(mouse.right,  (vec2){20, 50}, GFX_WHITE);
 
     wm_draw_text("kbd_bk: ", (vec2){5, 65}, GFX_WHITE); wm_draw_int(keyboard_getchar_nonblocking(), (vec2){70, 65}, GFX_WHITE); 
 

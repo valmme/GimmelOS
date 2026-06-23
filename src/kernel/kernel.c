@@ -1,4 +1,5 @@
 #include "kernel/io.h"
+#include "kernel/time.h"
 #include "gfx/gfx.h"
 #include "drivers/serial.h"
 
@@ -58,6 +59,15 @@ void gfx_render_frame() {
 
     uint8_t debug_id = 0;
     uint8_t prev_left = 0;
+
+    calibrate_timer();
+
+    gfx_begin_frame(GFX_BLACK);
+    gfx_paint_startup();
+    gfx_end_frame();
+
+    uint64_t start = get_cycles();
+    while (get_cycles() - start < ticks_per_sec * 5);
 
     while (1) {
         io_poll();
