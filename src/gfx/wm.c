@@ -221,7 +221,7 @@ window_t* wm_get_by_id(int id) {
 
 void wm_destroy(int id) {
     if (id < 0 || id >= wm.count) return;
-    wm.windows[id].on_destroy(id);
+    if (wm.windows[id].on_destroy) wm.windows[id].on_destroy(id);
     wm.windows[id].visible = 0;
 }
 
