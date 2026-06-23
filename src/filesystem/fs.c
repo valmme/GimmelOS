@@ -327,3 +327,43 @@ void fs_list_names(uint32_t parent, char names[][FS_MAX_NAME], int* count) {
         }
     }
 }
+
+int fs_rename_by_id(int id, const char* new_name) {
+    if (id <= 0 || id >= FS_MAX_INODES || !inodes[id].used) return 0;
+    if (kstrlen(new_name) == 0) return 0;
+
+    kstrncpy(inodes[id].name, new_name, FS_MAX_NAME);
+    fs_write_sectors(FS_INODE_LBA, (uint8_t*)inodes, sizeof(inodes));
+    return 1;
+}
+
+int fs_copy_by_id(int src_id, uint32_t dest_parent, const char* new_name) {
+    if (src_id < 0 || src_id >= FS_MAX_INODES || !inodes[src_id].used) return -1;
+
+    int new_id = fs_create(new_name, dest_parent, inodes[src_id].is_dir);
+    if (new_id < 0) return -1;
+
+    if (!inodes[src_id].is_dir) {
+        uint8_t buf[512];
+        if (fs_read_by_id(src_id, buf)) {
+            fs_write_by_id(new_id, buf, inodes[src_id].size);
+        }
+        return new_id;
+    }
+
+    char names[32][FS_MAX_NAME];
+    int count = 0;
+    fs_list_names((uint32_t)src_id, names, &count);
+
+    for (int i = 0; i < count; i++) {
+        char clean[FS_MAX_NAME];
+        kstrncpy(clean, names[i], FS_MAX_NAME);
+        int len = kstrlen(clean);
+        if (len > 0 && clean[len - 1] == '/') clean[len - 1] = '\0';
+
+        int child_id = fs_find_in(clean, (uint32_t)src_id);
+        if (child_id >= 0) fs_copy_by_id(child_id, (uint32_t)new_id, clean);
+    }
+
+    return new_id;
+}
