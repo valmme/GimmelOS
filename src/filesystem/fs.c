@@ -177,13 +177,23 @@ int fs_rm_by_id(int id) {
 int fs_rmdir_by_id(int id) {
     if (id <= 0 || id >= FS_MAX_INODES || !inodes[id].used) return 0;
     if (!inodes[id].is_dir) return 0;
+
     for (int i = 0; i < FS_MAX_INODES; i++) {
         if (i == id) continue;
-        if (inodes[i].used && inodes[i].parent == (uint32_t)id) return 0;
+        if (inodes[i].used && inodes[i].parent == (uint32_t)id) {
+            if (inodes[i].is_dir) {
+                if (!fs_rmdir_by_id(i)) return 0;
+            }
+
+            else {
+                if (!fs_rm_by_id(i)) return 0;
+            }
+        }
     }
 
     kmemset(&inodes[id], 0, sizeof(inode_t));
     fs_write_sectors(FS_INODE_LBA, (uint8_t*)inodes, sizeof(inodes));
+    fs_write_sectors(FS_BITMAP_LBA, bitmap, sizeof(bitmap));
     return 1;
 }
 

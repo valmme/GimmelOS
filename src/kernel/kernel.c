@@ -47,7 +47,7 @@ void gfx_render_frame() {
     mouse_init();
     wm_init();
 
-    wm_create_app("I", (rec){50, 50, 200, 200}, GFX_BLANK, shell_init, shell_update, shell_draw);
+    wm_create_app("Shell", (rec){50, 50, 200, 200}, GFX_BLANK, shell_init, shell_update, shell_draw);
 
     uint8_t prev_left = 0;
 

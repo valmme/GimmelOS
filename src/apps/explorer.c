@@ -21,12 +21,6 @@
 #define ICON_TEXT_GAP   4
 #define TEXT_X_OFFSET   (ICON_PAD_X + ICON_W + ICON_TEXT_GAP)
 
-enum menu_state_e {
-    NONE,
-    CONTEXT,
-    INPUT
-};
-
 extern mouse_state_t mouse;
 extern wm_t wm;
 
@@ -41,7 +35,6 @@ static int prev_left = 0;
 
 static int menu_open = 0;
 static int menu_x, menu_y;
-static int menu_state = NONE;
 
 static int ends_with(const char *str, const char *ext) {
     int slen = kstrlen(str);
@@ -173,16 +166,16 @@ void explorer_update(int wid) {
             else selected_idx = hit_idx;
         }
 
-        if (hit_idx >= 0 && mouse.right && !wm.prev_right) {
+        if (hit_idx >= 0 && mouse.right && !prev_right) {
             selected_idx = hit_idx;
             menu_open = 1;
-            menu_x = mouse.pos.x;
-            menu_y = mouse.pos.y;
+            menu_x = rel_x;
+            menu_y = rel_y;
         }
 
         if (menu_open) {
             if (mouse.left && !prev_left) {
-                if (mouse.pos.x > menu_x && mouse.pos.x < menu_x + 100) {
+                if (rel_x > menu_x && rel_x < menu_x + 100 && rel_y > menu_y && rel_y < menu_y + 60) {
                     if (kstrcmp(file_names[selected_idx], "..") != 0) {
                         char name[FS_MAX_NAME];
                         kstrncpy(name, file_names[selected_idx], FS_MAX_NAME);
@@ -196,9 +189,9 @@ void explorer_update(int wid) {
                         refresh_file_list();
                     }
                 }
-            }
 
-            menu_open = 0;
+                menu_open = 0;
+            }
         }
     }
 
@@ -242,7 +235,7 @@ void explorer_draw(int wid) {
 
             vec2 rel_mouse = { mouse.pos.x - canvas.x, mouse.pos.y - canvas.y };
 
-            if (check_collision_rec(rel_mouse, item_rec)) {
+            if (check_collision_rec(rel_mouse, item_rec) && wm.focused == wid) {
                 wm_draw_rec(item_rec, GFX_WHITE);
             }
 
