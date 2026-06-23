@@ -234,9 +234,11 @@ static void cmd_info(void) {
 void cmd_lito(const char* args) {
     if (!args || !args[0]) { spe("lito: missing path"); return; }
 
-    char fname[FS_MAX_NAME];
-    kstrncpy(fname, args, FS_MAX_NAME);
-    editor_open(fname);
+    int id = resolve_path(args);
+    if (id < 0) { spe("lito: not found"); return; }
+    if (fs_is_dir(id)) { spe("lito: is a directory"); return; }
+
+    editor_open(id);
 }
 
 static void cmd_wolfenstein(void) {
@@ -244,7 +246,7 @@ static void cmd_wolfenstein(void) {
 }
 
 static void cmd_explorer(void) {
-    wm_create_app("Explorer", (rec){100, 100, 200, 200}, GFX_BLACK, explorer_init, explorer_update, explorer_draw);
+    wm_create_app("Explorer", (rec){100, 100, 500, 350}, GFX_BLACK, explorer_init, explorer_update, explorer_draw);
 }
 
 static void run_gim(const char* args) {

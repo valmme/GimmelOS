@@ -15,7 +15,7 @@
 #define EDITOR_PADDING_X 6
 #define EDITOR_PADDING_Y 6
 #define EDITOR_LINE_SPACING 2
-#define EDITOR_LINE_HEIGHT (CHAR_H * SCALE + EDITOR_LINE_SPACING)
+#define EDITOR_LINE_HEIGHT (CHAR_H*  SCALE + EDITOR_LINE_SPACING)
 
 #define EDITOR_BUF 4096
 #define EDITOR_NAME "Lito"
@@ -48,9 +48,11 @@ static int len = 0;
 static int cursor_x = 0;
 static int scroll_top = 0;
 static int preferred_col = 0;
-static char current_filename[128];
 
-static const char *keywords[] = {
+static int current_id = -1;
+static char current_path_display[96];
+
+static const char* keywords[] = {
     "if", "else", "for", "while", "return", "static", "const", "struct",
     "typedef", "enum", "unsigned", "signed", "switch", "case", "default",
     "break", "continue", "volatile", "extern", "inline", "sizeof",
@@ -61,7 +63,7 @@ static const char *keywords[] = {
     "int64_t", "size_t", "NULL", "nullptr", "true", "false", "bool"
 };
 
-static int ends_with(const char *str, const char *ext) {
+static int ends_with(const char* str, const char* ext) {
     int slen = kstrlen(str);
     int elen = kstrlen(ext);
     if (slen < elen) return 0;
@@ -69,20 +71,20 @@ static int ends_with(const char *str, const char *ext) {
     return kstrcmp(str + slen - elen, ext) == 0;
 }
 
-static int is_c_file(const char *filename) {
+static int is_c_file(const char* filename) {
     return ends_with(filename, ".c") || ends_with(filename, ".h") ||
            ends_with(filename, ".cc") || ends_with(filename, ".cpp") ||
            ends_with(filename, ".hpp");
 }
 
-static int is_keyword(const char *word) {
+static int is_keyword(const char* word) {
     for (size_t i = 0; i < sizeof(keywords) / sizeof(keywords[0]); i++)
         if (kstrcmp(word, keywords[i]) == 0) return 1;
 
     return 0;
 }
 
-static int is_type_starter(const char *word) {
+static int is_type_starter(const char* word) {
     return kstrcmp(word, "struct") == 0 || kstrcmp(word, "class") == 0 || kstrcmp(word, "enum") == 0 || kstrcmp(word, "typedef") == 0;
 }
 
@@ -103,7 +105,7 @@ static void delete_char(void) {
     len--;
 }
 
-static void get_line_col(int *line_out, int *col_out) {
+static void get_line_col(int* line_out, int* col_out) {
     int line = 0, col = 0;
 
     for (int i = 0; i < cursor_x; i++) {
@@ -111,8 +113,8 @@ static void get_line_col(int *line_out, int *col_out) {
         else col++;
     }
 
-    *line_out = line;
-    *col_out = col;
+   *line_out = line;
+   *col_out = col;
 }
 
 static int find_line_start(int target_line) {
@@ -203,12 +205,12 @@ typedef struct {
     gfx_color_t cur_color;
 } render_ctx_t;
 
-static void rc_newline(render_ctx_t *rc) {
+static void rc_newline(render_ctx_t* rc) {
     rc->cur_line++;
     rc->cur_col = 0;
 }
 
-static void rc_emit(render_ctx_t *rc, char c) {
+static void rc_emit(render_ctx_t* rc, char c) {
     int rel = rc->cur_line - scroll_top;
     if (rel >= 0 && rel < rc->visible_rows) {
         int px = rc->text_x0 + rc->cur_col * CHAR_W * SCALE;
@@ -220,11 +222,11 @@ static void rc_emit(render_ctx_t *rc, char c) {
     rc->cur_col++;
 }
 
-static void rc_emit_str(render_ctx_t *rc, const char *s, int n) {
+static void rc_emit_str(render_ctx_t* rc, const char* s, int n) {
     for (int i = 0; i < n; i++) rc_emit(rc, s[i]);
 }
 
-static void draw_plain(render_ctx_t *rc) {
+static void draw_plain(render_ctx_t* rc) {
     for (int i = 0; i < len; i++) {
         char c = buf[i];
         if (c == '\n') rc_newline(rc);
@@ -232,7 +234,7 @@ static void draw_plain(render_ctx_t *rc) {
     }
 }
 
-static void draw_syntax(render_ctx_t *rc) {
+static void draw_syntax(render_ctx_t* rc) {
     char word[64];
     int w = 0, in_string = 0, in_macro = 0;
     char prev_word[64];
@@ -397,7 +399,7 @@ void editor_draw(int wid) {
         int ty = (TOOLBAR_H - EDITOR_LINE_HEIGHT) / 2;
         wm_draw_text_ex(EDITOR_NAME "  |  ^S Save", (vec2){EDITOR_PADDING_X, ty}, C_TEXT, C_TOOLBAR, SCALE);
 
-        const char *lang = is_c_file(current_filename) ? "C/C++" : "Plain";
+        const char* lang = is_c_file(current_path_display) ? "C/C++" : "Plain";
         int lw = kstrlen(lang) * CHAR_W * SCALE;
         wm_draw_text_ex(lang, (vec2){cw - lw - EDITOR_PADDING_X, ty}, C_LINENUM, C_TOOLBAR, SCALE);
     }
@@ -420,7 +422,7 @@ void editor_draw(int wid) {
         int lcw = kstrlen(lc) * CHAR_W * SCALE;
 
         wm_draw_text_ex(lc, (vec2){cw - lcw - EDITOR_PADDING_X, sy}, C_LINENUM, C_STATUSBAR, SCALE);
-        wm_draw_text_ex(current_filename, (vec2){EDITOR_PADDING_X, sy}, C_TEXT, C_STATUSBAR, SCALE);
+        wm_draw_text_ex(current_path_display, (vec2){EDITOR_PADDING_X, sy}, C_TEXT, C_STATUSBAR, SCALE);
     }
 
     int sb_x = cw - 8;
@@ -455,10 +457,13 @@ void editor_draw(int wid) {
     for (int r = 0; r < visible_rows; r++) {
         int abs_line = scroll_top + r;
         if (abs_line >= total_lines) break;
-        int py = HEADER_H + EDITOR_PADDING_Y + r * EDITOR_LINE_HEIGHT;
+
         gfx_color_t fg = (abs_line == cursor_line) ? C_TEXT : C_LINENUM;
+
         int num_digits = digits(abs_line + 1);
         int px = linenum_w - EDITOR_PADDING_X - num_digits * CHAR_W * SCALE;
+        int py = HEADER_H + EDITOR_PADDING_Y + r * EDITOR_LINE_HEIGHT;
+
         draw_int(abs_line + 1, (vec2){px, py}, fg, C_FACE);
     }
 
@@ -471,7 +476,7 @@ void editor_draw(int wid) {
         rc.cur_col = 0;
         rc.cur_color = C_TEXT;
 
-        if (is_c_file(current_filename)) draw_syntax(&rc);
+        if (is_c_file(current_path_display)) draw_syntax(&rc);
         else draw_plain(&rc);
     }
 
@@ -495,7 +500,11 @@ static int get_visible_rows(int wid) {
 
 void editor_init(int wid) {
     kmemset(buf, 0, EDITOR_BUF);
-    fs_read(current_filename, 0, (uint8_t *)buf);
+
+    if (current_id >= 0) {
+        fs_read_by_id(current_id, (uint8_t*)buf);
+    }
+
     buf[EDITOR_BUF - 1] = 0;
     len = kstrlen(buf);
     cursor_x = 0;
@@ -511,7 +520,7 @@ void editor_update(int wid) {
     while ((c = keyboard_getchar_nonblocking())) {
         if (c) {
             if (c == 19) {
-                fs_write(current_filename, 0, (uint8_t *)buf, len);
+                if (current_id >= 0) fs_write_by_id(current_id, (uint8_t*)buf, len);
             }
 
             else if (c == KEY_LEFT) {
@@ -581,7 +590,8 @@ void editor_update(int wid) {
     editor_draw(wid);
 }
 
-void editor_open(const char *filename) {
-    kstrncpy(current_filename, filename, 128);
+void editor_open(int id) {
+    current_id = id;
+    fs_get_path(id, current_path_display, sizeof(current_path_display));
     wm_create_app(EDITOR_NAME, (rec){40, 40, 600, 400}, C_BG, editor_init, editor_update, editor_draw);
 }
