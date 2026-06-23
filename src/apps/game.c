@@ -243,7 +243,7 @@ void game_draw(int wid) {
     if (text_scale < 1) text_scale = 1;
     if (text_scale > 6) text_scale = 6;
 
-    wm_draw_text_ex("Use WASD to move, mouse to look around", (vec2){10, 10}, GFX_BLACK, text_scale);
+    wm_draw_text_ex("Use WASD to move, mouse to look around", (vec2){10, 10}, GFX_WHITE, text_scale);
 
     wm_end_draw();
 }

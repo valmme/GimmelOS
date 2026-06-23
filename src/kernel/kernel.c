@@ -48,6 +48,7 @@ void gfx_render_frame() {
     wm_init();
 
     wm_create_app("Shell", (rec){50, 50, 200, 200}, GFX_BLANK, shell_init, shell_update, shell_draw);
+    wm.windows[0].focused = 1;
 
     uint8_t prev_left = 0;
 
