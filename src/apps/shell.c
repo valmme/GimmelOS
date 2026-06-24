@@ -7,6 +7,7 @@
 #include "apps/game/game.h"
 #include "apps/editor.h"
 #include "apps/debug.h"
+#include "apps/q3d.h"
 #include "apps/explorer/explorer.h"
 
 #define CHAR_W     8
@@ -248,17 +249,10 @@ void cmd_lito(const char* args) {
     editor_open(id);
 }
 
-static void cmd_wolfenstein(void) {
-    wm_create_app("minekampf", (rec){100, 100, 200, 200}, GFX_SKY_BLUE, game_init, game_update, game_draw);
-}
-
-static void cmd_explorer(void) {
-    wm_create_app("Explorer", (rec){100, 100, 500, 350}, GFX_BLACK, explorer_init, explorer_update, explorer_draw);
-}
-
-static void cmd_debug(void) {
-    wm_create_app("Debug", (rec){100, 100, 200, 200}, GFX_BLACK, debug_init, debug_update, debug_draw);
-}
+static void cmd_wolfenstein(void) { wm_create_app("minekampf", (rec){100, 100, 200, 200}, GFX_SKY_BLUE, game_init, game_update, game_draw); }
+static void cmd_explorer(void) { wm_create_app("Explorer", (rec){100, 100, 500, 350}, GFX_BLACK, explorer_init, explorer_update, explorer_draw); }
+static void cmd_debug(void) { wm_create_app("Debug", (rec){100, 100, 200, 200}, GFX_BLACK, debug_init, debug_update, debug_draw); }
+static void cmd_q3d(void) { wm_create_app("rotating cube", (rec){200, 200, 200, 200}, GFX_BLACK, q3d_init, q3d_update, q3d_draw); }
 
 static void run_gim(const char* args) {
     if (!args || !args[0]) { spe("run: missing path"); return; }
@@ -326,7 +320,8 @@ static void read_command(const char* input) {
     else if (CMD_IS("run"))         run_gim(args);
     else if (CMD_IS("explorer"))    cmd_explorer();
     else if (CMD_IS("debug"))       cmd_debug();
-    else if (CMD_IS("game")) cmd_wolfenstein();
+    else if (CMD_IS("q3d"))         cmd_q3d();
+    else if (CMD_IS("game"))        cmd_wolfenstein();
     else {
         char tmp[LINE_BUF_W];
         kstrncpy(tmp, "Unknown: ", LINE_BUF_W);

@@ -70,11 +70,14 @@ static inline float acosf(float x) {
 
 // vector math
 static inline vec2 vec2zero() { return (vec2){0, 0}; }
+static inline vec3 vec3zero() { return (vec3){0, 0, 0}; }
 
-static inline vec2 add(vec2 a, int32_t v) { return (vec2){a.x+v,   a.y+v}; }
+static inline vec2 add(vec2 a, int32_t v) { return (vec2){a.x+v, a.y+v}; }
 static inline vec2 addv(vec2 a,  vec2 b) { return (vec2){a.x+b.x, a.y+b.y}; }
 static inline vec2 get_pos(rec a) { return (vec2){a.x, a.y}; }
 static inline vec2 get_size(rec a) { return (vec2){a.w, a.h}; }
+
+static inline vec2f addf(vec2f a, float v) { return (vec2f){a.x+v, a.y+v}; }
 
 static inline float angle(vec2 a, vec2 b) {
     float dot = (float)(a.x * b.x + a.y * b.y);

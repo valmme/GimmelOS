@@ -18,6 +18,23 @@ typedef struct {
 } vec2;
 
 typedef struct {
+    float x;
+    float y;
+} vec2f;
+
+typedef struct {
+    int32_t x;
+    int32_t y;
+    int32_t z;
+} vec3;
+
+typedef struct {
+    float x;
+    float y;
+    float z;
+} vec3f;
+
+typedef struct {
     int32_t x;
     int32_t y;
     uint32_t w;

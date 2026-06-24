@@ -1,13 +1,13 @@
 #include "kernel/time.h"
 #include "kernel/io.h"
 
-static uint64_t last_time = 0;
-static uint64_t frame_count = 0;
-static uint32_t current_fps = 0;
+uint64_t last_time = 0;
+uint64_t frame_count = 0;
 uint64_t ticks_per_sec = 0;
 uint32_t ticks_per_ms = 0;
+uint32_t current_fps = 0;
 
-static void delay_ms(uint32_t ms) {
+void delay_ms(uint32_t ms) {
     for (uint32_t i = 0; i < ms * 11932; i++) {
         outb(0x80, 0);
     }
@@ -26,11 +26,6 @@ void calibrate_timer(void) {
 void time_sleep(uint8_t sec) {
     uint64_t start = get_cycles();
     while (get_cycles() - start < (uint64_t)ticks_per_ms * 1000 * sec);
-}
-
-void time_sleep_ms(uint32_t ms) {
-    uint64_t start = get_cycles();
-    while (get_cycles() - start < (uint64_t)ticks_per_ms * ms);
 }
 
 uint32_t get_fps(void) {
