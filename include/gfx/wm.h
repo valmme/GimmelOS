@@ -13,7 +13,7 @@
 #define WM_MIN_H 60
 
 #define WM_BTN_SIZE 14
-#define WM_BTN_MARGIN 4
+#define WM_BTN_MARGIN 2
 
 #define WM_MAX_WIDGETS 32
 

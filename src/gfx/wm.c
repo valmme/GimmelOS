@@ -118,6 +118,27 @@ static void wm98_draw_bevel(rec r, int raised) {
     gfx_draw_line((vec2){x0+1, y1-1}, (vec2){x1-1, y1-1}, inner_br);
 }
 
+static void wm98_draw_bevel_w(rec r, int raised) {
+    gfx_color_t outer_tl = raised ? WM98_HILIGHT     : WM98_DARK_SHADOW;
+    gfx_color_t outer_br = raised ? WM98_DARK_SHADOW : WM98_HILIGHT;
+    gfx_color_t inner_tl = raised ? WM98_FACE        : WM98_SHADOW;
+    gfx_color_t inner_br = raised ? WM98_SHADOW      : WM98_FACE;
+
+    int32_t x0 = r.x, y0 = r.y;
+    int32_t x1 = r.x + (int32_t)r.w - 1;
+    int32_t y1 = r.y + (int32_t)r.h - 1;
+
+    wm_draw_line((vec2){x0, y0}, (vec2){x1, y0}, outer_tl);
+    wm_draw_line((vec2){x0, y0}, (vec2){x0, y1}, outer_tl);
+    wm_draw_line((vec2){x1, y0}, (vec2){x1, y1}, outer_br);
+    wm_draw_line((vec2){x0, y1}, (vec2){x1, y1}, outer_br);
+
+    wm_draw_line((vec2){x0+1, y0+1}, (vec2){x1-1, y0+1}, inner_tl);
+    wm_draw_line((vec2){x0+1, y0+1}, (vec2){x0+1, y1-1}, inner_tl);
+    wm_draw_line((vec2){x1-1, y0+1}, (vec2){x1-1, y1-1}, inner_br);
+    wm_draw_line((vec2){x0+1, y1-1}, (vec2){x1-1, y1-1}, inner_br);
+}
+
 void wm98_draw_dither_gradient(rec r, gfx_color_t near_color, gfx_color_t far_color) {
     uint32_t packed_near = ((uint32_t)near_color.r << 16) | ((uint32_t)near_color.g << 8) | (uint32_t)near_color.b;
     uint32_t packed_far  = ((uint32_t)far_color.r << 16) | ((uint32_t)far_color.g << 8) | (uint32_t)far_color.b;
@@ -510,38 +531,33 @@ int wm_add_input(int wid, rec bounds) {
 }
 
 static void wm_draw_widget(window_t* w, widget_t* wg) {
-    rec r = {
-        w->bounds.x + wg->bounds.x,
-        w->bounds.y + WM_TITLEBAR_H + wg->bounds.y,
-        wg->bounds.w,
-        wg->bounds.h
-    };
+    rec r = wg->bounds;
 
     switch (wg->type) {
         case WIDGET_LABEL:
-            gfx_print(wg->text, (vec2){r.x + 2, r.y + 2}, wg->fg);
+            wm_draw_text(wg->text, (vec2){r.x + 2, r.y + 2}, wg->fg);
             break;
 
         case WIDGET_BUTTON: {
             gfx_color_t face = wg->hovered ? WM98_HILIGHT : WM98_FACE;
 
-            wm98_draw_bevel(r, 1);
-            gfx_draw_fill_rec((rec){r.x + 2, r.y + 2, r.w - 4, r.h - 4}, face);
+            wm98_draw_bevel_w(r, 1);
+            wm_draw_fill_rec((rec){r.x + 2, r.y + 2, r.w - 4, r.h - 4}, face);
 
             int tx = r.x + ((int32_t)r.w - (int32_t)kstrlen(wg->text) * FB_CHAR_W) / 2;
             int ty = r.y + ((int32_t)r.h - FB_CHAR_H) / 2;
-            gfx_print(wg->text, (vec2){tx, ty}, WM98_BLACK);
+            wm_draw_text(wg->text, (vec2){tx, ty}, WM98_BLACK);
             break;
         }
 
         case WIDGET_INPUT: {
-            wm98_draw_bevel(r, 0);
-            gfx_draw_fill_rec((rec){r.x + 2, r.y + 2, r.w - 4, r.h - 4}, WM98_HILIGHT);
-            gfx_print(wg->text, (vec2){r.x + 4, r.y + 4}, WM98_BLACK);
+            wm98_draw_bevel_w(r, 0);
+            wm_draw_fill_rec((rec){r.x + 2, r.y + 2, r.w - 4, r.h - 4}, WM98_HILIGHT);
+            wm_draw_text(wg->text, (vec2){r.x + 4, r.y + 4}, WM98_BLACK);
 
             if (wg->focused) {
                 int cx = r.x + 4 + kstrlen(wg->text) * FB_CHAR_W;
-                gfx_draw_fill_rec((rec){cx, r.y + 4, 2, FB_CHAR_H}, WM98_BLACK);
+                wm_draw_fill_rec((rec){cx, r.y + 4, 2, FB_CHAR_H}, WM98_BLACK);
             }
             break;
         }
@@ -611,8 +627,17 @@ void wm_draw(int id) {
         gfx_draw_fill_rec(handle, WM98_SHADOW);
     }
 
+    gfx_set_clip((rec){
+        w->bounds.x + 1,
+        w->bounds.y + WM_TITLEBAR_H,
+        w->bounds.w - 2,
+        w->bounds.h - WM_TITLEBAR_H - 1
+    });
+
     for (int i = 0; i < w->widgets_count; i++)
         wm_draw_widget(w, &w->widgets[i]);
+
+    gfx_reset_clip();
 }
 
 void wm_draw_all(void) {
