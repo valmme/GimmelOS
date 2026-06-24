@@ -65,6 +65,8 @@ void gfx_render_frame() {
     calibrate_timer();
 
     while (1) {
+        update_fps_counter();
+
         io_poll();
         wm_handle_mouse(mouse);
 
