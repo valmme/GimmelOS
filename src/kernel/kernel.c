@@ -52,15 +52,6 @@ void debug_destroy(int wid) {
     debug_created = 0;
 }
 
-void startup_logo(void) {
-    gfx_begin_frame(GFX_BLACK);
-    gfx_paint_startup();
-    gfx_end_frame();
-
-    uint64_t start = get_cycles();
-    while (get_cycles() - start < ticks_per_sec * 5);
-}
-
 void gfx_render_frame() {
     mouse_init();
     wm_init();
@@ -72,7 +63,6 @@ void gfx_render_frame() {
     uint8_t prev_left = 0;
 
     calibrate_timer();
-    // startup_logo();
 
     while (1) {
         io_poll();

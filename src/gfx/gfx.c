@@ -2,6 +2,7 @@
 #include "gfx/wm.h"
 #include "gfx/icons.h"
 #include "gfx/startup.h"
+#include "lib/kstring.h"
 
 uint32_t* framebuffer;
 uint32_t width;
@@ -57,10 +58,6 @@ void gfx_end_frame(void) {
 void gfx_paint_desktop(void) {
     rec screen_rec = {0, 0, width, height};
     wm98_draw_diagonal_dither_gradient(screen_rec, desktop_color_top_left, desktop_color_bottom_right);   
-}
-
-void gfx_paint_startup(void) {
-    gfx_draw_texture(startup_logo, (vec2){0, 0}, (vec2){LOGO_W, LOGO_H}, (vec2){width, height});
 }
 
 void gfx_put_pixel(uint32_t x, uint32_t y, gfx_color_t color) {
@@ -201,6 +198,67 @@ void gfx_draw_cursor(mouse_state_t mouse) {
         for (int col = 0; col < CURSOR_W; col++) {
             if (cursor_bitmap[row] & (1u << (31 - col)))
                 gfx_put_pixel(mouse.pos.x + col, mouse.pos.y + row, GFX_WHITE);
+        }
+    }
+}
+
+void gfx_draw_texture_ex(const uint32_t* tex, vec2 pos, vec2 src_size, vec2 dst_size, gfx_color_t color) {
+    int32_t start_x = pos.x;
+    int32_t start_y = pos.y;
+    int32_t end_x = start_x + (int32_t)dst_size.x;
+    int32_t end_y = start_y + (int32_t)dst_size.y;
+
+    if (end_x > (int32_t)width)  end_x = (int32_t)width;
+    if (end_y > (int32_t)height) end_y = (int32_t)height;
+    if (start_x < 0) start_x = 0;
+    if (start_y < 0) start_y = 0;
+
+    for (int32_t y = start_y; y < end_y; y++) {
+        uint32_t* row_ptr = &backbuffer[y * width];
+        uint32_t src_y = ((y - pos.y) * (uint32_t)src_size.y) / (uint32_t)dst_size.y;
+
+        for (int32_t x = start_x; x < end_x; x++) {
+            uint32_t src_x = ((x - pos.x) * (uint32_t)src_size.x) / (uint32_t)dst_size.x;
+            uint32_t tex_pixel = tex[src_y * (uint32_t)src_size.x + src_x];
+
+            uint8_t a = (tex_pixel >> 24) & 0xFF;
+            if (a == 0) continue;
+
+            uint8_t r = (tex_pixel >> 16) & 0xFF;
+            uint8_t g = (tex_pixel >> 8) & 0xFF;
+            uint8_t b = tex_pixel & 0xFF;
+
+            uint8_t final_a = (uint8_t)((a * color.a) / 255);
+            if (final_a == 0) continue;
+
+            uint8_t sr, sg, sb;
+
+            if (r == g && g == b && r != 0) {
+                sr = color.r;
+                sg = color.g;
+                sb = color.b;
+            } 
+            
+            else {
+                sr = r;
+                sg = g;
+                sb = b;
+            }
+
+            uint32_t dst = row_ptr[x];
+            uint8_t dr = (dst >> 16) & 0xFF;
+            uint8_t dg = (dst >> 8) & 0xFF;
+            uint8_t db = dst & 0xFF;
+
+            uint8_t out_r = (sr * final_a + dr * (255 - final_a)) / 255;
+            uint8_t out_g = (sg * final_a + dg * (255 - final_a)) / 255;
+            uint8_t out_b = (sb * final_a + db * (255 - final_a)) / 255;
+
+            row_ptr[x] =
+                (0xFF << 24) |
+                ((uint32_t)out_r << 16) |
+                ((uint32_t)out_g << 8) |
+                (uint32_t)out_b;
         }
     }
 }
