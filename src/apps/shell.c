@@ -249,7 +249,7 @@ void cmd_lito(const char* args) {
 }
 
 static void cmd_wolfenstein(void) {
-    wm_create_app("Wolfenstein", (rec){100, 100, 200, 200}, GFX_BLACK, game_init, game_update, game_draw);
+    wm_create_app("minekampf", (rec){100, 100, 200, 200}, GFX_SKY_BLUE, game_init, game_update, game_draw);
 }
 
 static void cmd_explorer(void) {
@@ -326,7 +326,7 @@ static void read_command(const char* input) {
     else if (CMD_IS("run"))         run_gim(args);
     else if (CMD_IS("explorer"))    cmd_explorer();
     else if (CMD_IS("debug"))       cmd_debug();
-    else if (CMD_IS("wolfenstein")) cmd_wolfenstein();
+    else if (CMD_IS("game")) cmd_wolfenstein();
     else {
         char tmp[LINE_BUF_W];
         kstrncpy(tmp, "Unknown: ", LINE_BUF_W);

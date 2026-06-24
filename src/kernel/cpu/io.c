@@ -6,6 +6,7 @@
 
 static uint8_t mouse_buf[3];
 static int mouse_buf_pos = 0;
+static unsigned long seed = 0;
 
 mouse_state_t mouse = {0};
 
@@ -29,10 +30,17 @@ void outw(uint16_t port, uint16_t data) {
     __asm__ volatile ("outw %0, %1" :: "a"(data), "d"(port));
 }
 
+uint64_t rdtsc(void) {
+    uint64_t ret;
+    __asm__ __volatile__ ("rdtsc" : "=A" (ret));
+    return ret;
+}
+
 void halt(void) {
     __asm__ volatile ("cli; hlt");
 }
 
+// cursor
 static void mouse_wait_write(void) {
     while (inb(0x64) & 0x02);
 }
@@ -115,4 +123,14 @@ void io_poll(void) {
             keyboard_push_scancode(data);
         }
     }
+}
+
+// random
+void random_init(void) {
+    seed = (unsigned int)rdtsc();
+}
+
+unsigned int get_random(void) {
+    seed = seed * 1103515245 + 12345;
+    return (unsigned int)(seed / 65536) % 32768;
 }

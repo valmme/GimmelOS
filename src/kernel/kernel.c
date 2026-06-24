@@ -26,6 +26,8 @@ void kernel_main(uint32_t magic, uint32_t addr) {
     keyboard_init();
     fs_init();
 
+    random_init();
+
     if (magic != 0x2BADB002) {
         // vga_warn("Not multiboot");
     }
@@ -50,6 +52,15 @@ void debug_destroy(int wid) {
     debug_created = 0;
 }
 
+void startup_logo(void) {
+    gfx_begin_frame(GFX_BLACK);
+    gfx_paint_startup();
+    gfx_end_frame();
+
+    uint64_t start = get_cycles();
+    while (get_cycles() - start < ticks_per_sec * 5);
+}
+
 void gfx_render_frame() {
     mouse_init();
     wm_init();
@@ -61,13 +72,7 @@ void gfx_render_frame() {
     uint8_t prev_left = 0;
 
     calibrate_timer();
-
-    gfx_begin_frame(GFX_BLACK);
-    gfx_paint_startup();
-    gfx_end_frame();
-
-    uint64_t start = get_cycles();
-    while (get_cycles() - start < ticks_per_sec * 5);
+    // startup_logo();
 
     while (1) {
         io_poll();

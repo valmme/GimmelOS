@@ -4,22 +4,13 @@
 #include "apps/game/textures.h"
 #include "apps/game/game.h"
 
-#define MAP_W 8
-#define MAP_H 8
-#define MOVE_SPEED 0.09f
-#define MOUSE_SENS 0.003f
-#define BRIGHTNESS 0.9f
+#define map_w 64
+#define map_h 64
+#define move_speed 1
+#define mouse_sens 0.003f
+#define brightness 0.9f
 
-static int map[MAP_H][MAP_W] = {
-    {1,1,1,1,1,1,1,1},
-    {1,0,0,0,0,0,0,1},
-    {1,0,1,0,1,0,0,1},
-    {1,0,1,0,1,0,0,1},
-    {1,0,0,0,0,0,0,1},
-    {1,0,1,1,1,0,0,1},
-    {1,0,0,0,0,0,0,1},
-    {1,1,1,1,1,1,1,1},
-};
+static int map[map_h][map_w];
 
 typedef struct {
     float x;
@@ -33,100 +24,100 @@ typedef struct {
     int side; 
 } ray_hit_t;
 
-static player_t p = {3.5f, 3.5f, 0};
-static int key_w, key_s, key_a, key_d, key_esc;
-int lines = 2;
+static player_t player = {3.5f, 3.5f, 0};
+static uint8_t key_w, key_s, key_a, key_d, key_esc;
+uint8_t lines = 2;
+
+static float pitch_w = 0.0f;
+static float jump_vel = 0;
+static uint8_t is_jumping = 0;
+static uint8_t gravitation = 9;
+
+float camera_height = 5000.0f;
 
 void game_init(int wid) {
-    (void)wid;
-    p.x = 3.5f; p.y = 3.5f; p.a = 0;
-    key_w = key_s = key_a = key_d = key_esc = 0;
+    player.x = 3.5f; player.y = 3.5f; player.a = 0;
+    
+    for(int i = 0; i < map_h; i++) {
+        for(int j = 0; j < map_w; j++) {
+            map[i][j] = get_random() % 3; 
+        }
+    }
 }
-
 static int is_wall(int x, int y) {
-    if (x < 0 || y < 0 || x >= MAP_W || y >= MAP_H) return 1;
-    return map[y][x];
+    return map[y & (map_h - 1)][x & (map_w - 1)];
 }
 
 static ray_hit_t dda_ray(float px, float py, float dx, float dy) {
-    int mapX = (int)px, mapY = (int)py;
+    int map_x = (int)px, map_y = (int)py;
 
-    float deltaDistX = (dx == 0) ? 1e30f : (dx < 0 ? -1.0f/dx : 1.0f/dx);
-    float deltaDistY = (dy == 0) ? 1e30f : (dy < 0 ? -1.0f/dy : 1.0f/dy);
+    float delta_dist_x = (dx == 0) ? 1e30f : fabsf(1.0f/dx);
+    float delta_dist_y = (dy == 0) ? 1e30f : fabsf(1.0f/dy);
 
-    int stepX, stepY;
-    float sideDistX, sideDistY;
+    int step_x = (dx < 0) ? -1 : 1;
+    int step_y = (dy < 0) ? -1 : 1;
 
-    if (dx < 0) { 
-        stepX = -1; 
-        sideDistX = (px - mapX) * deltaDistX; 
-    }
-
-    else { 
-        stepX = 1; 
-        sideDistX = (mapX + 1.0f - px) * deltaDistX; 
-    }
-
-    if (dy < 0) { 
-        stepY = -1; 
-        sideDistY = (py - mapY) * deltaDistY; 
-    }
-
-    else { 
-        stepY = 1; 
-        sideDistY = (mapY + 1.0f - py) * deltaDistY; 
-    }
+    float side_dist_x = (dx < 0) ? (px - map_x) * delta_dist_x : (map_x + 1.0f - px) * delta_dist_x;
+    float side_dist_y = (dy < 0) ? (py - map_y) * delta_dist_y : (map_y + 1.0f - py) * delta_dist_y;
 
     int side = 0;
-
     for (int i = 0; i < 64; i++) {
-        if (sideDistX < sideDistY) { 
-            sideDistX += deltaDistX; 
-            mapX += stepX; 
+        if (side_dist_x < side_dist_y) { 
+            side_dist_x += delta_dist_x; 
+            map_x += step_x; 
             side = 0; 
-        }
-
+        } 
+        
         else { 
-            sideDistY += deltaDistY; 
-            mapY += stepY; 
+            side_dist_y += delta_dist_y; 
+            map_y += step_y; 
             side = 1; 
         }
 
-        if (map[mapY][mapX]) break;
+        if (map[map_y & (map_h - 1)][map_x & (map_w - 1)]) break;
     }
 
-    float dist, hitX;
+    float dist, hit_x;
     if (side == 0) { 
-        dist = sideDistX - deltaDistX; 
-        hitX = py + dist * dy; 
-    }
-
+        dist = side_dist_x - delta_dist_x; 
+        hit_x = py + dist * dy; 
+    } 
+    
     else { 
-        dist = sideDistY - deltaDistY; 
-        hitX = px + dist * dx; 
+        dist = side_dist_y - delta_dist_y; 
+        hit_x = px + dist * dx; 
     }
 
-    hitX -= (int)hitX;
-    return (ray_hit_t){dist, hitX, side};
+    hit_x -= (int)hit_x;
+    return (ray_hit_t){dist, hit_x, side};
 }
 
 void game_update(int wid) {
     extern mouse_state_t mouse;
     extern wm_t wm;
+    extern uint8_t key_pressed[256];
+
+    float pitch_w_limit = 1.0f;
 
     key_w = key_s = key_a = key_d = key_esc = 0;
-
-    int c;
 
     if (keyboard_is_key_down(SC_W)) key_w = 1;
     if (keyboard_is_key_down(SC_S)) key_s = 1;
     if (keyboard_is_key_down(SC_A)) key_a = 1;
     if (keyboard_is_key_down(SC_D)) key_d = 1;
+
+    if (keyboard_is_key_down(SC_SPACE)) camera_height += 200;
+    if (keyboard_is_key_down(SC_LSHIFT)) camera_height -= 200;
+
+    if (keyboard_is_key_down(SC_LEFT))  player.a -= 0.01f;
+    if (keyboard_is_key_down(SC_RIGHT)) player.a += 0.01f;
+    if (keyboard_is_key_down(SC_UP))    pitch_w += 0.01f;
+    if (keyboard_is_key_down(SC_DOWN))  pitch_w -= 0.01f;
+
     if (keyboard_is_key_pressed(SC_ESC)) key_esc = 1;
 
     window_t* win = &wm.windows[wm.focused];
     win->wants_mouse_capture = 1;
-
 
     if (key_esc) {
         win->mouse_capture = 0;
@@ -136,22 +127,83 @@ void game_update(int wid) {
         int cx = win->bounds.x + (int32_t)win->bounds.w / 2;
         int cy = win->bounds.y + WM_TITLEBAR_H + (int32_t)(win->bounds.h - WM_TITLEBAR_H) / 2;
         int dx = mouse.pos.x - cx;
+        int dy = mouse.pos.y - cy;
 
-        p.a += dx * MOUSE_SENS;
+        player.a += dx * mouse_sens;
+        pitch_w -= dy * mouse_sens;
+        
+        if (pitch_w > pitch_w_limit) pitch_w = pitch_w_limit;
+        if (pitch_w < -pitch_w_limit) pitch_w = -pitch_w_limit;
+
         mouse.pos.x = cx;
         mouse.pos.y = cy;
     }
 
-    float dirX = cosf(p.a), dirY = sinf(p.a);
+    float dir_x = cosf(player.a), dir_y = sinf(player.a);
     float mx = 0, my = 0;
 
-    if (key_w) { mx += dirX * MOVE_SPEED; my += dirY * MOVE_SPEED; }
-    if (key_s) { mx -= dirX * MOVE_SPEED; my -= dirY * MOVE_SPEED; }
-    if (key_a) { mx += dirY * MOVE_SPEED; my -= dirX * MOVE_SPEED; }
-    if (key_d) { mx -= dirY * MOVE_SPEED; my += dirX * MOVE_SPEED; }
+    if (key_w) { mx += dir_x * move_speed; my += dir_y * move_speed; }
+    if (key_s) { mx -= dir_x * move_speed; my -= dir_y * move_speed; }
+    if (key_a) { mx += dir_y * move_speed; my -= dir_x * move_speed; }
+    if (key_d) { mx -= dir_y * move_speed; my += dir_x * move_speed; }
 
-    if (!is_wall((int)(p.x + mx), (int)p.y)) p.x += mx;
-    if (!is_wall((int)p.x, (int)(p.y + my))) p.y += my;
+    if (is_jumping) {
+        camera_height += jump_vel;
+        jump_vel -= gravitation;
+
+        if (camera_height <= 5000.0f) {
+            camera_height = 5000.0f;
+            jump_vel = 0;
+            is_jumping = 0;
+        }
+    }
+
+    player.x += mx;
+    player.y += my;
+}
+
+void draw_floor(float dir_x, float dir_y, float plane_x, float plane_y, int h, int w) {
+    float pz = camera_height;
+    float horizon = h / 2.0f + pitch_w * h;
+
+    for (int y = (int)horizon + 1; y < h; y++) {
+        float row_dist = pz / (y - horizon);
+
+        float floor_step_x = row_dist * (dir_x - plane_x) + player.x;
+        float floor_step_y = row_dist * (dir_y - plane_y) + player.y;
+
+        float step_x = row_dist * (2.0f * plane_x) / w;
+        float step_y = row_dist * (2.0f * plane_y) / w;
+
+        int cur_x = (int)(floor_step_x * 65536.0f);
+        int cur_y = (int)(floor_step_y * 65536.0f);
+        int s_x = (int)(step_x * 65536.0f);
+        int s_y = (int)(step_y * 65536.0f);
+
+        for (int x = 0; x < w; x++) {
+            int tx = (cur_x >> 16) & (G_W - 1);
+            int ty = (cur_y >> 16) & (G_H - 1);
+
+            int grid_x = (cur_x >> 20);
+            int grid_y = (cur_y >> 20);
+
+            cur_x += s_x;
+            cur_y += s_y;
+
+            int block_type = map[grid_y & (map_h - 1)][grid_x & (map_w - 1)];
+
+            uint32_t fc;
+            if (block_type == 0) fc = grass[ty * G_W + tx];
+            else if (block_type == 1) fc = stone[ty * G_W + tx];
+            else fc = dirt[ty * G_W + tx];
+
+            uint8_t alpha = (fc >> 24) & 0xFF;
+            if (alpha == 0) continue;
+
+            gfx_color_t col = {(fc >> 16) & 0xFF, (fc >> 8) & 0xFF, fc & 0xFF, alpha};
+            wm_draw_pixel((vec2){x, y}, col);
+        }
+    }
 }
 
 void game_draw(int wid) {
@@ -160,89 +212,17 @@ void game_draw(int wid) {
     vec2 size = get_size(wm_get_canvas(wid));
     int w = size.x, h = size.y;
 
-    float dirX  =  cosf(p.a), dirY  = sinf(p.a);
-    float planeX = -dirY * 0.66f, planeY = dirX * 0.66f;
+    float dir_x = cosf(player.a), dir_y = sinf(player.a);
+    float plane_x = -dir_y * 0.66f, plane_y = dir_x * 0.66f;
 
-    // floor & ceiling
-    for (int y = h / 2; y < h; y += lines) {
-        float pz = h * 0.5f;
-        float rowDist = pz / (y - h / 2);
-
-        float rayDirX0 = dirX - planeX;
-        float rayDirY0 = dirY - planeY;
-        float rayDirX1 = dirX + planeX;
-        float rayDirY1 = dirY + planeY;
-
-        float stepX = rowDist * (rayDirX1 - rayDirX0) / w;
-        float stepY = rowDist * (rayDirY1 - rayDirY0) / w;
-
-        float floorX = p.x + rowDist * rayDirX0;
-        float floorY = p.y + rowDist * rayDirY0;
-
-        for (int x = 0; x < w; x += 2) {
-            int tx = (int)(TEX_W * (floorX - (int)floorX)) & (TEX_W - 1);
-            int ty = (int)(TEX_H * (floorY - (int)floorY)) & (TEX_H - 1);
-
-            floorX += stepX * 2;
-            floorY += stepY * 2;
-
-            uint32_t fc = floor_tex[ty * TEX_W + tx];
-            gfx_color_t col = {(fc>>16)&0xFF, (fc>>8)&0xFF, fc&0xFF, 255};
-
-            wm_draw_pixel((vec2){x, y},         col);
-            wm_draw_pixel((vec2){x, h - y - 1}, col);
-        }
-    }
-
-    // walls
-    float inv_w = 1.0f / w;
-    float fov   = PI / 3.0f;
-
-    for (int x = 0; x < w; x += lines) {
-        float ray_a = p.a - fov * 0.5f + x * inv_w * fov;
-        float rx = cosf(ray_a), ry = sinf(ray_a);
-
-        ray_hit_t hit = dda_ray(p.x, p.y, rx, ry);
-        float corrected = hit.dist * cosf(ray_a - p.a);
-        int line_h = (int)(h / (corrected + 0.0001f));
-
-        int start = h/2 - line_h/2; if (start < 0)    start = 0;
-        int end   = start + line_h; if (end   >= h)    end   = h - 1;
-
-        int tex_x = (int)(hit.hit_x * TEX_W);
-        if (tex_x < 0) tex_x = 0;
-        if (tex_x >= TEX_W) tex_x = TEX_W - 1;
-
-        int tex_step = (TEX_H << 16) / line_h;
-        int tex_pos  = 0;
-
-        float light = 1.0f / (1.0f + hit.dist * hit.dist * 0.12f);
-        if (hit.side) light *= BRIGHTNESS;
-        if (light < 0.1f) light = 0.1f;
-
-        for (int y = start; y < end; y++) {
-            int tex_y = tex_pos >> 16;
-            tex_pos += tex_step;
-
-            uint32_t color = wall_tex[tex_y * TEX_W + tex_x];
-            gfx_color_t c = {
-                ((color>>16)&0xFF) * light,
-                ((color>>8) &0xFF) * light,
-                ( color     &0xFF) * light,
-                255
-            };
-
-            for (int lx = 0; lx < lines; lx++)
-                wm_draw_pixel((vec2){x + lx, y}, c);
-        }
-    }
+    draw_floor(dir_x, dir_y, plane_x, plane_y, h, w);
 
     int text_scale = h / 180;
-
     if (text_scale < 1) text_scale = 1;
     if (text_scale > 6) text_scale = 6;
 
-    wm_draw_text_ex("Use WASD to move, mouse to look around", (vec2){10, 10}, GFX_WHITE, text_scale);
+    wm_draw_text("FPS: ", (vec2){5, 5}, GFX_WHITE);
+    wm_draw_int(get_fps(), (vec2){40, 5}, GFX_WHITE);
 
     wm_end_draw();
 }

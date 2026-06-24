@@ -108,11 +108,19 @@
 #define SC_F11         0x57
 #define SC_F12         0x58
 
+#define SC_UP          0x48
+#define SC_DOWN        0x50
+#define SC_LEFT        0x4B
+#define SC_RIGHT       0x4D
+
 #define KEY_UP      1001
 #define KEY_DOWN    1002
 #define KEY_LEFT    1003
 #define KEY_RIGHT   1004
 #define KEY_RELEASE 0x80
+
+extern uint8_t key_down[256];
+extern uint8_t key_pressed[256];
 
 void keyboard_init(void);
 int  keyboard_getchar(void);

@@ -7,8 +7,8 @@ static int kbd_q_head  = 0;
 static int kbd_q_tail  = 0;
 static int kbd_enabled = 1;
 
-static uint8_t key_down[256];
-static uint8_t key_pressed[256];
+uint8_t key_down[256];
+uint8_t key_pressed[256];
 
 static const char sc_ascii[128] = {
     0,   27,  '1', '2', '3', '4', '5', '6', '7', '8',
