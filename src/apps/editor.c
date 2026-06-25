@@ -1,4 +1,5 @@
 #include "gfx/wm.h"
+#include "kernel/io.h"
 #include "drivers/keyboard.h"
 #include "fs.h"
 #include "lib/kstring.h"
@@ -29,10 +30,12 @@
 #define C_STATUSBAR     C_FACE
 #define C_CURSOR        GFX_WHITE
 #define C_CURSOR_LINE   (gfx_color_t){48, 42, 36, 255}
+#define C_SELECTION     (gfx_color_t){58, 90, 138, 255}
 #define C_TEXT          GFX_WHITE
 #define C_LINENUM       GFX_GRAY
 #define C_SCROLLBAR_BG  C_SHADOW
 #define C_SCROLLBAR_FG  (gfx_color_t){90, 90, 90, 255}
+#define C_SCROLLBAR_FG_ACTIVE (gfx_color_t){130, 130, 130, 255}
 #define C_KEYWORD       (gfx_color_t){198, 120, 221, 255}
 #define C_TYPE          (gfx_color_t){97 , 175, 239, 255}
 #define C_FUNCTION      (gfx_color_t){229, 192, 123, 255}
@@ -49,8 +52,24 @@ static int cursor_x = 0;
 static int scroll_top = 0;
 static int preferred_col = 0;
 
+static int sel_anchor = -1;
+static int sel_start = -1;
+static int sel_end = -1;
+
+static int mouse_left_prev = 0;
+static int scrollbar_dragging = 0;
+
 static int current_id = -1;
 static char current_path_display[96];
+
+typedef struct {
+    int cw, ch;
+    int total_lines;
+    int linenum_w;
+    int visible_rows;
+    int text_x0;
+    int sb_x, sb_y0, sb_h;
+} editor_layout_t;
 
 static const char* keywords[] = {
     "if", "else", "for", "while", "return", "static", "const", "struct",
@@ -62,6 +81,22 @@ static const char* keywords[] = {
     "uint16_t", "uint32_t", "uint64_t", "int8_t", "int16_t", "int32_t",
     "int64_t", "size_t", "NULL", "nullptr", "true", "false", "bool"
 };
+
+extern mouse_state_t mouse;
+
+static int editor_mouse_down(void) {
+    return mouse.left != 0;
+}
+
+static int editor_mouse_local_x(int wid) {
+    wm_canvas_t canvas = wm_get_canvas(wid);
+    return mouse.pos.x - canvas.x;
+}
+
+static int editor_mouse_local_y(int wid) {
+    wm_canvas_t canvas = wm_get_canvas(wid);
+    return mouse.pos.y - canvas.y;
+}
 
 static int ends_with(const char* str, const char* ext) {
     int slen = kstrlen(str);
@@ -88,6 +123,12 @@ static int is_type_starter(const char* word) {
     return kstrcmp(word, "struct") == 0 || kstrcmp(word, "class") == 0 || kstrcmp(word, "enum") == 0 || kstrcmp(word, "typedef") == 0;
 }
 
+static void clear_selection(void) {
+    sel_anchor = -1;
+    sel_start = -1;
+    sel_end = -1;
+}
+
 static void insert_char(char c) {
     if (len >= EDITOR_BUF - 1) return;
     for (int i = len; i > cursor_x; i--) buf[i] = buf[i - 1];
@@ -105,16 +146,22 @@ static void delete_char(void) {
     len--;
 }
 
-static void get_line_col(int* line_out, int* col_out) {
+static void offset_to_line_col(int offset, int* line_out, int* col_out) {
     int line = 0, col = 0;
 
-    for (int i = 0; i < cursor_x; i++) {
+    if (offset > len) offset = len;
+
+    for (int i = 0; i < offset; i++) {
         if (buf[i] == '\n') { line++; col = 0; }
         else col++;
     }
 
-   *line_out = line;
-   *col_out = col;
+    *line_out = line;
+    *col_out = col;
+}
+
+static void get_line_col(int* line_out, int* col_out) {
+    offset_to_line_col(cursor_x, line_out, col_out);
 }
 
 static int find_line_start(int target_line) {
@@ -152,6 +199,12 @@ static void update_scroll(int visible_rows) {
 
     if (line < scroll_top) scroll_top = line;
     else if (line >= scroll_top + visible_rows) scroll_top = line - visible_rows + 1;
+
+    int total_lines = count_total_lines();
+    int max_scroll = total_lines - visible_rows;
+    if (max_scroll < 0) max_scroll = 0;
+    if (scroll_top > max_scroll) scroll_top = max_scroll;
+    if (scroll_top < 0) scroll_top = 0;
 }
 
 static int digits(int n) {
@@ -194,6 +247,27 @@ static void editor_draw_bevel(rec r, int raised) {
     wm_draw_line((vec2){x0+1, y0+1}, (vec2){x0+1, y1-1}, inner_tl);
     wm_draw_line((vec2){x1-1, y0+1}, (vec2){x1-1, y1-1}, inner_br);
     wm_draw_line((vec2){x0+1, y1-1}, (vec2){x1-1, y1-1}, inner_br);
+}
+
+static editor_layout_t compute_layout(int wid) {
+    wm_canvas_t canvas = wm_get_canvas(wid);
+    editor_layout_t L;
+
+    L.cw = canvas.w;
+    L.ch = canvas.h;
+    L.total_lines = count_total_lines();
+    L.linenum_w = (digits(L.total_lines) + 1) * CHAR_W * SCALE + EDITOR_PADDING_X * 2;
+
+    int available_h = L.ch - HEADER_H - STATUSBAR_H - EDITOR_LINE_HEIGHT;
+    L.visible_rows = available_h / EDITOR_LINE_HEIGHT;
+    if (L.visible_rows < 1) L.visible_rows = 1;
+
+    L.text_x0 = L.linenum_w + EDITOR_PADDING_X + 2;
+    L.sb_x = L.cw - 8;
+    L.sb_y0 = HEADER_H + 1;
+    L.sb_h = (L.visible_rows * EDITOR_LINE_HEIGHT) - 1;
+
+    return L;
 }
 
 typedef struct {
@@ -375,15 +449,8 @@ static void draw_syntax(render_ctx_t* rc) {
 }
 
 void editor_draw(int wid) {
-    wm_canvas_t canvas = wm_get_canvas(wid);
-    int cw = canvas.w;
-    int ch = canvas.h;
-
-    int total_lines = count_total_lines();
-    int linenum_w = (digits(total_lines) + 1) * CHAR_W * SCALE + EDITOR_PADDING_X * 2;
-
-    int visible_rows = (ch - HEADER_H - STATUSBAR_H) / (EDITOR_LINE_HEIGHT + EDITOR_LINE_SPACING);
-    if (visible_rows < 1) visible_rows = 1;
+    editor_layout_t L = compute_layout(wid);
+    int cw = L.cw, ch = L.ch;
 
     int cursor_line, cursor_col;
     get_line_col(&cursor_line, &cursor_col);
@@ -425,53 +492,85 @@ void editor_draw(int wid) {
         wm_draw_text_ex(current_path_display, (vec2){EDITOR_PADDING_X, sy}, C_TEXT, SCALE);
     }
 
-    int sb_x = cw - 8;
-    int sb_y0 = HEADER_H + 1;
-    int sb_h = ch - HEADER_H - STATUSBAR_H - 1;
+    int sb_x = L.sb_x;
+    int sb_y0 = L.sb_y0;
+    int sb_h = L.sb_h;
 
     wm_draw_fill_rec((rec){sb_x, sb_y0, 8, sb_h}, C_SCROLLBAR_BG);
     editor_draw_bevel((rec){sb_x, sb_y0, 8, sb_h}, 0);
 
-    if (total_lines > visible_rows) {
-        int thumb_h = sb_h * visible_rows / total_lines;
+    if (L.total_lines > L.visible_rows) {
+        int thumb_h = sb_h * L.visible_rows / L.total_lines;
         if (thumb_h < 10) thumb_h = 10;
-        int thumb_y = sb_y0 + (sb_h - thumb_h) * scroll_top / (total_lines - visible_rows);
+        int max_scroll = L.total_lines - L.visible_rows;
+        int max_track = sb_h - thumb_h;
+        if (max_track < 1) max_track = 1;
+        int thumb_y = sb_y0 + max_track * scroll_top / (max_scroll > 0 ? max_scroll : 1);
         rec thumb_r = {sb_x + 1, thumb_y, 6, thumb_h};
-        wm_draw_fill_rec(thumb_r, C_SCROLLBAR_FG);
+
+        wm_draw_fill_rec(thumb_r, scrollbar_dragging ? C_SCROLLBAR_FG_ACTIVE : C_SCROLLBAR_FG);
         editor_draw_bevel(thumb_r, 1);
     }
 
-    wm_draw_fill_rec((rec){0, HEADER_H + 1, linenum_w, sb_h}, C_FACE);
-    editor_draw_bevel((rec){0, HEADER_H + 1, linenum_w, sb_h}, 0);
+    wm_draw_fill_rec((rec){0, HEADER_H + 1, L.linenum_w, sb_h + 10}, C_FACE);
+    editor_draw_bevel((rec){0, HEADER_H + 1, L.linenum_w, sb_h + 10}, 0);
 
     {
         int rel = cursor_line - scroll_top;
-        if (rel >= 0 && rel < visible_rows) {
+        if (rel >= 0 && rel < L.visible_rows) {
             int hy = HEADER_H + EDITOR_PADDING_Y + rel * EDITOR_LINE_HEIGHT;
-            wm_draw_fill_rec((rec){linenum_w + 1, hy, sb_x - linenum_w - 1, EDITOR_LINE_HEIGHT}, C_CURSOR_LINE);
+            wm_draw_fill_rec((rec){L.linenum_w + 1, hy, sb_x - L.linenum_w - 1, EDITOR_LINE_HEIGHT}, C_CURSOR_LINE);
         }
     }
 
-    editor_draw_bevel((rec){linenum_w, HEADER_H + 1, sb_x - linenum_w, sb_h}, 0);
+    editor_draw_bevel((rec){L.linenum_w, HEADER_H + 1, sb_x - L.linenum_w, L.visible_rows * EDITOR_LINE_HEIGHT + 10}, 0);
 
-    for (int r = 0; r < visible_rows; r++) {
+    for (int r = 0; r < L.visible_rows; r++) {
         int abs_line = scroll_top + r;
-        if (abs_line >= total_lines) break;
+        if (abs_line >= L.total_lines) break;
 
         gfx_color_t fg = (abs_line == cursor_line) ? C_TEXT : C_LINENUM;
 
         int num_digits = digits(abs_line + 1);
-        int px = linenum_w - EDITOR_PADDING_X - num_digits * CHAR_W * SCALE;
+        int px = L.linenum_w - EDITOR_PADDING_X - num_digits * CHAR_W * SCALE;
         int py = HEADER_H + EDITOR_PADDING_Y + r * EDITOR_LINE_HEIGHT;
 
         draw_int(abs_line + 1, (vec2){px, py}, fg, C_FACE);
     }
 
+    if (sel_start >= 0 && sel_end > sel_start) {
+        int ls, cs, le, ce;
+        offset_to_line_col(sel_start, &ls, &cs);
+        offset_to_line_col(sel_end, &le, &ce);
+
+        for (int line = ls; line <= le; line++) {
+            int rel = line - scroll_top;
+            if (rel < 0 || rel >= L.visible_rows) continue;
+
+            int line_start = find_line_start(line);
+            int llen = line_length(line_start);
+
+            int col_from = (line == ls) ? cs : 0;
+            int col_to   = (line == le) ? ce : llen;
+            if (col_to > llen) col_to = llen;
+            if (col_from >= col_to) {
+                if (line != ls && line != le) col_to = col_from + 1;
+                else continue;
+            }
+
+            int rx = L.text_x0 + col_from * CHAR_W * SCALE;
+            int rw = (col_to - col_from) * CHAR_W * SCALE;
+            int ry = HEADER_H + EDITOR_PADDING_Y + rel * EDITOR_LINE_HEIGHT;
+
+            wm_draw_fill_rec((rec){rx, ry, rw, EDITOR_LINE_HEIGHT}, C_SELECTION);
+        }
+    }
+
     {
         render_ctx_t rc;
         rc.canvas_w = sb_x;
-        rc.visible_rows = visible_rows;
-        rc.text_x0 = linenum_w + EDITOR_PADDING_X + 2;
+        rc.visible_rows = L.visible_rows;
+        rc.text_x0 = L.text_x0;
         rc.cur_line = 0;
         rc.cur_col = 0;
         rc.cur_color = C_TEXT;
@@ -482,8 +581,8 @@ void editor_draw(int wid) {
 
     {
         int rel = cursor_line - scroll_top;
-        if (rel >= 0 && rel < visible_rows) {
-            int cx = linenum_w + EDITOR_PADDING_X + 2 + cursor_col * CHAR_W * SCALE;
+        if (rel >= 0 && rel < L.visible_rows) {
+            int cx = L.text_x0 + cursor_col * CHAR_W * SCALE;
             int cy = HEADER_H + EDITOR_PADDING_Y + rel * EDITOR_LINE_HEIGHT;
             wm_draw_fill_rec((rec){cx, cy, 2, EDITOR_LINE_HEIGHT}, C_CURSOR);
         }
@@ -493,9 +592,84 @@ void editor_draw(int wid) {
 }
 
 static int get_visible_rows(int wid) {
-    wm_canvas_t canvas = wm_get_canvas(wid);
-    int rows = (canvas.h - HEADER_H - STATUSBAR_H) / (EDITOR_LINE_HEIGHT);
-    return rows < 1 ? 1 : rows;
+    return compute_layout(wid).visible_rows;
+}
+
+static void editor_handle_mouse(int wid, editor_layout_t* L) {
+    int down = editor_mouse_down();
+    int just_pressed = down && !mouse_left_prev;
+    mouse_left_prev = down;
+
+    if (!down) {
+        scrollbar_dragging = 0;
+        return;
+    }
+
+    int mx = editor_mouse_local_x(wid);
+    int my = editor_mouse_local_y(wid);
+
+    int over_scrollbar = mx >= L->sb_x && mx < L->sb_x + 8 && my >= L->sb_y0 && my < L->sb_y0 + L->sb_h;
+
+    if (scrollbar_dragging || (just_pressed && over_scrollbar)) {
+        scrollbar_dragging = 1;
+
+        if (L->total_lines > L->visible_rows) {
+            int thumb_h = L->sb_h * L->visible_rows / L->total_lines;
+            if (thumb_h < 10) thumb_h = 10;
+
+            int max_track = L->sb_h - thumb_h;
+            if (max_track < 1) max_track = 1;
+
+            int max_scroll = L->total_lines - L->visible_rows;
+
+            int rel_y = my - L->sb_y0 - thumb_h / 2;
+            int new_scroll = rel_y * max_scroll / max_track;
+
+            if (new_scroll < 0) new_scroll = 0;
+            if (new_scroll > max_scroll) new_scroll = max_scroll;
+            scroll_top = new_scroll;
+        }
+        return;
+    }
+
+    int in_text_area = mx >= L->linenum_w && mx < L->sb_x &&
+                        my >= HEADER_H + 1 && my < HEADER_H + 1 + L->sb_h;
+
+    if (in_text_area || (!just_pressed && sel_anchor >= 0)) {
+        int rel_row = (my - HEADER_H - EDITOR_PADDING_Y) / EDITOR_LINE_HEIGHT;
+        if (rel_row < 0) rel_row = 0;
+        if (rel_row >= L->visible_rows) rel_row = L->visible_rows - 1;
+
+        int target_line = scroll_top + rel_row;
+        if (target_line >= L->total_lines) target_line = L->total_lines - 1;
+        if (target_line < 0) target_line = 0;
+
+        int start = find_line_start(target_line);
+        int llen = line_length(start);
+
+        int col = (mx - L->text_x0) / (CHAR_W * SCALE);
+        if (col < 0) col = 0;
+        if (col > llen) col = llen;
+
+        int pos = start + col;
+
+        if (just_pressed) {
+            sel_anchor = pos;
+            sel_start = -1;
+            sel_end = -1;
+        }
+
+        cursor_x = pos;
+        preferred_col = col;
+
+        if (sel_anchor >= 0) {
+            if (sel_anchor < pos)      { sel_start = sel_anchor; sel_end = pos; }
+            else if (sel_anchor > pos) { sel_start = pos;        sel_end = sel_anchor; }
+            else                       { sel_start = -1;         sel_end = -1; }
+        }
+
+        update_scroll(L->visible_rows);
+    }
 }
 
 void editor_init(int wid) {
@@ -510,81 +684,72 @@ void editor_init(int wid) {
     cursor_x = 0;
     scroll_top = 0;
     preferred_col = 0;
+    clear_selection();
+    mouse_left_prev = 0;
+    scrollbar_dragging = 0;
     update_scroll(get_visible_rows(wid));
 }
 
 void editor_update(int wid) {
-    int visible_rows = get_visible_rows(wid);
+    editor_layout_t layout = compute_layout(wid);
+    int visible_rows = layout.visible_rows;
     int c;
 
+    editor_handle_mouse(wid, &layout);
+
     while ((c = keyboard_getchar_nonblocking())) {
-        if (c) {
-            if (c == 19) {
-                if (current_id >= 0) fs_write_by_id(current_id, (uint8_t*)buf, len);
-            }
+        if (c != 0) {
+            clear_selection(); 
+        }
 
-            else if (c == KEY_LEFT) {
-                if (cursor_x > 0) cursor_x--;
-                int line, col; get_line_col(&line, &col);
-                preferred_col = col;
-                update_scroll(visible_rows);
-            }
-
-            else if (c == KEY_RIGHT) {
-                if (cursor_x < len) cursor_x++;
-                int line, col; get_line_col(&line, &col);
-                preferred_col = col;
-                update_scroll(visible_rows);
-            }
-
-            else if (c == KEY_UP) {
-                int line, col; get_line_col(&line, &col);
-                if (line > 0) {
-                    int start = find_line_start(line - 1);
-                    int llen = line_length(start);
-                    cursor_x = start + (preferred_col < llen ? preferred_col : llen);
-                    update_scroll(visible_rows);
-                }
-            }
-
-            else if (c == KEY_DOWN) {
-                int line, col; get_line_col(&line, &col);
-                int start = find_line_start(line + 1);
-                if (start < len) {
-                    int llen = line_length(start);
-                    cursor_x = start + (preferred_col < llen ? preferred_col : llen);
-                    update_scroll(visible_rows);
-                }
-            }
-
-            else if (c == '\t') {
-                for (int i = 0; i < 4; i++) insert_char(' ');
-                int line, col; get_line_col(&line, &col);
-                preferred_col = col;
-                update_scroll(visible_rows);
-            }
-
-            else if (c == '\b') {
-                delete_char();
-                int line, col; get_line_col(&line, &col);
-                preferred_col = col;
-                update_scroll(visible_rows);
-            }
-
-            else if (c == '\n') {
-                insert_char('\n');
-                int line, col; get_line_col(&line, &col);
-                preferred_col = col;
-                update_scroll(visible_rows);
-            }
-
-            else if (c >= 32 && c <= 126) {
-                insert_char((char)c);
-                int line, col; get_line_col(&line, &col);
-                preferred_col = col;
-                update_scroll(visible_rows);
+        if (c == 19) {
+            if (current_id >= 0) fs_write_by_id(current_id, (uint8_t*)buf, len);
+        }
+        else if (c == KEY_LEFT) {
+            if (cursor_x > 0) cursor_x--;
+            int line, col; get_line_col(&line, &col);
+            preferred_col = col;
+        }
+        else if (c == KEY_RIGHT) {
+            if (cursor_x < len) cursor_x++;
+            int line, col; get_line_col(&line, &col);
+            preferred_col = col;
+        }
+        else if (c == KEY_UP) {
+            int line, col; get_line_col(&line, &col);
+            if (line > 0) {
+                int start = find_line_start(line - 1);
+                int llen = line_length(start);
+                cursor_x = start + (preferred_col < llen ? preferred_col : llen);
             }
         }
+        else if (c == KEY_DOWN) {
+            int line, col; get_line_col(&line, &col);
+            int start = find_line_start(line + 1);
+            if (start < len) {
+                int llen = line_length(start);
+                cursor_x = start + (preferred_col < llen ? preferred_col : llen);
+            }
+        }
+        else if (c == '\t') {
+            for (int i = 0; i < 4; i++) insert_char(' ');
+        }
+        else if (c == '\b') {
+            delete_char();
+        }
+        else if (c == '\n') {
+            insert_char('\n');
+        }
+        else if (c >= 32 && c <= 126) {
+            insert_char((char)c);
+        }
+
+        int line, col; 
+        get_line_col(&line, &col);
+        if (c != KEY_LEFT && c != KEY_RIGHT && c != KEY_UP && c != KEY_DOWN) {
+            preferred_col = col;
+        }
+        update_scroll(visible_rows);
     }
 
     editor_draw(wid);

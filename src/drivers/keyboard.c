@@ -139,15 +139,17 @@ void keyboard_push_scancode(uint8_t sc) {
 
     if (sc & 0x80) {
         key_down[key] = 0;
-    } else {
-        if (!key_down[key])
+    }
+
+    else {
+        if (!key_down[key]) {
             key_pressed[key] = 1;
+        }
 
         key_down[key] = 1;
     }
 
     int next = (kbd_q_tail + 1) % KBD_QUEUE_SIZE;
-
     if (next != kbd_q_head) {
         kbd_queue[kbd_q_tail] = sc;
         kbd_q_tail = next;
@@ -159,7 +161,9 @@ uint8_t keyboard_is_key_down(uint8_t scancode) {
 }
 
 uint8_t keyboard_is_key_pressed(uint8_t scancode) {
-    return key_pressed[scancode];
+    uint8_t val = key_pressed[scancode];
+    key_pressed[scancode] = 0;
+    return val;
 }
 
 void keyboard_set_enabled(int e) {

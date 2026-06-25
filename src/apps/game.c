@@ -99,8 +99,8 @@ void game_update(int wid) {
     if (keyboard_is_key_down(SC_SPACE)) camera_height += 50.0f;
     if (keyboard_is_key_down(SC_LSHIFT)) camera_height -= 50.0f;
 
-    if (keyboard_is_key_pressed(SC_KP_PLUS)) { RENDER_SCALE++; key_pressed[SC_KP_PLUS] = 0; }
-    if (keyboard_is_key_pressed(SC_KP_MINUS) && RENDER_SCALE - 1 > 0) { RENDER_SCALE--; key_pressed[SC_KP_MINUS] = 0; }
+    if (keyboard_is_key_pressed(SC_KP_PLUS)) { RENDER_SCALE++; }
+    if (keyboard_is_key_pressed(SC_KP_MINUS) && RENDER_SCALE - 1 > 0) { RENDER_SCALE--; }
 
     if (camera_height < -200.0f) camera_height = -200.0f;
     if (camera_height > 5000.0f) camera_height = 5000.0f;
