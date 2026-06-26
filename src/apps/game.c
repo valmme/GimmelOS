@@ -6,11 +6,11 @@
 
 #define map_w 64
 #define map_h 64
-#define MOVE_SPEED 5.0f
+#define MOVE_SPEED 180.0f
 #define MOUSE_SENS 0.003f
 #define ROT_SPEED 3.0f
 #define FLOOR_STEP 2
-#define HEIGHT_SPEED 500.0f
+#define HEIGHT_SPEED 2000.0f
 
 static int RENDER_SCALE = 1;
 

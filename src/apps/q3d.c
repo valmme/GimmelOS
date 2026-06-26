@@ -125,7 +125,7 @@ void q3d_update(int wid) {
     float dt = 1.0f / (float)get_fps();
     if (dt > 0.05f) dt = 0.05f;
 
-    const float speed = 3.0f;
+    const float speed = 15.0f;
 
     if (keyboard_is_key_pressed(SC_SPACE)) {
         auto_rot = !auto_rot;
@@ -137,7 +137,7 @@ void q3d_update(int wid) {
     if (keyboard_is_key_down(SC_DOWN))  rot.x += speed * dt;
 
     if (auto_rot) {
-        addf(rot, speed * dt);
+        rot = addf(rot, speed * dt);
     }
 }
 
