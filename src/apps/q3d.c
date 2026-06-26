@@ -1,5 +1,6 @@
 #include "apps/q3d.h"
 #include "lib/math.h"
+#include "kernel/time.h"
 #include "gfx/wm.h"
 #include "drivers/keyboard.h"
 
@@ -17,6 +18,7 @@ static vec2f rot = {0, 0};
 static vec3f verts[8];
 static face_t faces[12];
 static int last_cube_size = -1;
+static uint8_t auto_rot = 0;
 
 static gfx_color_t apply_lighting(gfx_color_t color, float intensity) {
     if (intensity < 0.15f) intensity = 0.15f;
@@ -120,12 +122,23 @@ void q3d_init(int wid) {
 }
 
 void q3d_update(int wid) {
-    float speed = 0.05f;
+    float dt = 1.0f / (float)get_fps();
+    if (dt > 0.05f) dt = 0.05f;
 
-    if (keyboard_is_key_down(SC_LEFT))  rot.y -= speed;
-    if (keyboard_is_key_down(SC_RIGHT)) rot.y += speed;
-    if (keyboard_is_key_down(SC_UP))    rot.x -= speed;
-    if (keyboard_is_key_down(SC_DOWN))  rot.x += speed;
+    const float speed = 3.0f;
+
+    if (keyboard_is_key_pressed(SC_SPACE)) {
+        auto_rot = !auto_rot;
+    }
+
+    if (keyboard_is_key_down(SC_LEFT))  rot.y -= speed * dt;
+    if (keyboard_is_key_down(SC_RIGHT)) rot.y += speed * dt;
+    if (keyboard_is_key_down(SC_UP))    rot.x -= speed * dt;
+    if (keyboard_is_key_down(SC_DOWN))  rot.x += speed * dt;
+
+    if (auto_rot) {
+        addf(rot, speed * dt);
+    }
 }
 
 void q3d_draw(int wid) {

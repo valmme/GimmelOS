@@ -6,9 +6,11 @@
 
 #define map_w 64
 #define map_h 64
-#define move_speed 0.5f
-#define mouse_sens 0.003f
+#define MOVE_SPEED 5.0f
+#define MOUSE_SENS 0.003f
+#define ROT_SPEED 3.0f
 #define FLOOR_STEP 2
+#define HEIGHT_SPEED 500.0f
 
 static int RENDER_SCALE = 1;
 
@@ -84,6 +86,8 @@ void game_update(int wid) {
     extern wm_t wm;
 
     float pitch_w_limit = 1.0f;
+    float dt = 1.0f / (float)get_fps();
+    if (dt > 0.05f) dt = 0.05f;
 
     key_w = keyboard_is_key_down(SC_W);
     key_s = keyboard_is_key_down(SC_S);
@@ -91,13 +95,13 @@ void game_update(int wid) {
     key_d = keyboard_is_key_down(SC_D);
     key_esc = keyboard_is_key_pressed(SC_ESC);
 
-    if (keyboard_is_key_down(SC_LEFT))  player.a -= 0.1f;
-    if (keyboard_is_key_down(SC_RIGHT)) player.a += 0.1f;
-    if (keyboard_is_key_down(SC_UP))    pitch_w += 0.1f;
-    if (keyboard_is_key_down(SC_DOWN))  pitch_w -= 0.1f;
+    if (keyboard_is_key_down(SC_LEFT))  player.a -= ROT_SPEED * dt;
+    if (keyboard_is_key_down(SC_RIGHT)) player.a += ROT_SPEED * dt;
+    if (keyboard_is_key_down(SC_UP))    pitch_w  += ROT_SPEED * dt;
+    if (keyboard_is_key_down(SC_DOWN))  pitch_w  -= ROT_SPEED * dt;
 
-    if (keyboard_is_key_down(SC_SPACE)) camera_height += 50.0f;
-    if (keyboard_is_key_down(SC_LSHIFT)) camera_height -= 50.0f;
+    if (keyboard_is_key_down(SC_SPACE))  camera_height += HEIGHT_SPEED * dt;
+    if (keyboard_is_key_down(SC_LSHIFT)) camera_height -= HEIGHT_SPEED * dt;
 
     if (keyboard_is_key_pressed(SC_KP_PLUS)) { RENDER_SCALE++; }
     if (keyboard_is_key_pressed(SC_KP_MINUS) && RENDER_SCALE - 1 > 0) { RENDER_SCALE--; }
@@ -116,8 +120,8 @@ void game_update(int wid) {
         int dx = mouse.pos.x - cx;
         int dy = mouse.pos.y - cy;
 
-        player.a += dx * mouse_sens;
-        pitch_w -= dy * mouse_sens;
+        player.a += dx * MOUSE_SENS;
+        pitch_w -= dy * MOUSE_SENS;
 
         if (pitch_w > pitch_w_limit) pitch_w = pitch_w_limit;
         if (pitch_w < -pitch_w_limit) pitch_w = -pitch_w_limit;
@@ -132,10 +136,10 @@ void game_update(int wid) {
     float move_x = 0.0f;
     float move_y = 0.0f;
 
-    if (key_w) { move_x += dir_x * move_speed; move_y += dir_y * move_speed; }
-    if (key_s) { move_x -= dir_x * move_speed; move_y -= dir_y * move_speed; }
-    if (key_a) { move_x += dir_y * move_speed; move_y -= dir_x * move_speed; }
-    if (key_d) { move_x -= dir_y * move_speed; move_y += dir_x * move_speed; }
+    if (key_w) { move_x += dir_x * MOVE_SPEED * dt; move_y += dir_y * MOVE_SPEED * dt; }
+    if (key_s) { move_x -= dir_x * MOVE_SPEED * dt; move_y -= dir_y * MOVE_SPEED * dt; }
+    if (key_a) { move_x += dir_y * MOVE_SPEED * dt; move_y -= dir_x * MOVE_SPEED * dt; }
+    if (key_d) { move_x -= dir_y * MOVE_SPEED * dt; move_y += dir_x * MOVE_SPEED * dt; }
 
     if (is_jumping) {
         camera_height += jump_vel;
