@@ -1,6 +1,7 @@
 #include "apps/shell.h"
 #include "gfx/wm.h"
 #include "drivers/keyboard.h"
+#include "kernel/io.h"
 #include "fs.h"
 #include "lib/kstring.h"
 
@@ -26,6 +27,9 @@
 #define C_INPUT  GFX_WHITE
 #define C_CURSOR GFX_WHITE
 #define C_PATH   (gfx_color_t){100, 180, 255, 255}
+#define C_SCROLLBAR_BG        (gfx_color_t){30, 30, 30, 255}
+#define C_SCROLLBAR_FG        (gfx_color_t){90, 90, 90, 255}
+#define C_SCROLLBAR_FG_ACTIVE (gfx_color_t){130, 130, 130, 255}
 
 #define PATH_MAX 256
 
@@ -44,6 +48,102 @@ static int line_count = 0;
 static int scroll_top = 0;
 static char input_buf[INPUT_MAX];
 static int input_len = 0;
+
+static int mouse_left_prev = 0;
+static int scrollbar_dragging = 0;
+
+extern mouse_state_t mouse;
+
+static int shell_mouse_down(void) {
+    return mouse.left != 0;
+}
+
+static int shell_mouse_local_x(int wid) {
+    wm_canvas_t canvas = wm_get_canvas(wid);
+    return mouse.pos.x - canvas.x;
+}
+
+static int shell_mouse_local_y(int wid) {
+    wm_canvas_t canvas = wm_get_canvas(wid);
+    return mouse.pos.y - canvas.y;
+}
+
+typedef struct {
+    int cw, ch;
+    int visible;
+    int total_lines;
+    int input_area_h;
+    int sb_x, sb_y0, sb_h;
+} shell_layout_t;
+
+static shell_layout_t compute_layout(int wid) {
+    wm_canvas_t cv = wm_get_canvas(wid);
+    shell_layout_t L;
+
+    L.cw = cv.w;
+    L.ch = cv.h;
+    L.input_area_h = LINE_H + PADDING_Y;
+    L.visible = (L.ch - L.input_area_h) / LINE_H;
+    if (L.visible < 1) L.visible = 1;
+    L.total_lines = line_count;
+
+    L.sb_x = L.cw - 8;
+    L.sb_y0 = 0;
+    L.sb_h = L.ch - L.input_area_h;
+    if (L.sb_h < 1) L.sb_h = 1;
+
+    return L;
+}
+
+static void clamp_scroll(shell_layout_t* L) {
+    int max_scroll = L->total_lines - L->visible;
+    if (max_scroll < 0) max_scroll = 0;
+    if (scroll_top > max_scroll) scroll_top = max_scroll;
+    if (scroll_top < 0) scroll_top = 0;
+}
+
+static void scroll_to_bottom(shell_layout_t* L) {
+    int max_scroll = L->total_lines - L->visible;
+    scroll_top = max_scroll > 0 ? max_scroll : 0;
+}
+
+static void shell_handle_mouse(int wid, shell_layout_t* L) {
+    int down = shell_mouse_down();
+    int just_pressed = down && !mouse_left_prev;
+    mouse_left_prev = down;
+
+    if (!down) {
+        scrollbar_dragging = 0;
+        return;
+    }
+
+    int mx = shell_mouse_local_x(wid);
+    int my = shell_mouse_local_y(wid);
+
+    int over_scrollbar = mx >= L->sb_x && mx < L->sb_x + 8 &&
+                          my >= L->sb_y0 && my < L->sb_y0 + L->sb_h;
+
+    if (scrollbar_dragging || (just_pressed && over_scrollbar)) {
+        scrollbar_dragging = 1;
+
+        if (L->total_lines > L->visible) {
+            int thumb_h = L->sb_h * L->visible / L->total_lines;
+            if (thumb_h < 10) thumb_h = 10;
+
+            int max_track = L->sb_h - thumb_h;
+            if (max_track < 1) max_track = 1;
+
+            int max_scroll = L->total_lines - L->visible;
+
+            int rel_y = my - L->sb_y0 - thumb_h / 2;
+            int new_scroll = rel_y * max_scroll / max_track;
+
+            if (new_scroll < 0) new_scroll = 0;
+            if (new_scroll > max_scroll) new_scroll = max_scroll;
+            scroll_top = new_scroll;
+        }
+    }
+}
 
 static void push_line(const char* text, gfx_color_t color) {
     if (line_count < LINES_MAX) {
@@ -147,24 +247,8 @@ static void cmd_ls(const char* args) {
     int count = 0;
     fs_list_names((uint32_t)target, names, &count);
 
-    char line[LINE_BUF_W];
-    line[0] = '\0';
-    int lx = 0;
-
-    for (int i = 0; i < count; i++) {
-        int nlen = kstrlen(names[i]);
-        if (lx + nlen + 2 >= LINE_BUF_W) {
-            push_line(line, C_TEXT);
-            line[0] = '\0';
-            lx = 0;
-        }
-        kstrncpy(line + lx, names[i], LINE_BUF_W - lx);
-        lx += nlen;
-        line[lx++] = '\n';
-        line[lx] = '\0';
-    }
-
-    if (lx > 0) push_line(line, C_TEXT);
+    for (int i = 0; i < count; i++)
+        push_line(names[i], C_TEXT);
 }
 
 static void cmd_cat(const char* args) {
@@ -336,6 +420,8 @@ void shell_init(int wid) {
     scroll_top   = 0;
     input_len    = 0;
     input_buf[0] = '\0';
+    mouse_left_prev = 0;
+    scrollbar_dragging = 0;
 
     push_line("+---------------------------------+", C_PROMPT);
     push_line("|       GimmelOS  v0.1            |", C_TEXT);
@@ -348,6 +434,9 @@ void shell_update(int wid) {
     extern wm_t wm;
     if (wm.focused != wid) return;
 
+    shell_layout_t layout = compute_layout(wid);
+    shell_handle_mouse(wid, &layout);
+
     int c;
     while ((c = keyboard_getchar_nonblocking())) {
         if (c == '\n' || c == '\r') {
@@ -356,44 +445,53 @@ void shell_update(int wid) {
             input_len    = 0;
             input_buf[0] = '\0';
 
-            wm_canvas_t cv = wm_get_canvas(wid);
-            int visible = (cv.h - PADDING_Y * 2 - LINE_H) / LINE_H;
-            if (visible < 1) visible = 1;
-            scroll_top = line_count - visible;
-            if (scroll_top < 0) scroll_top = 0;
+            layout = compute_layout(wid);
+            scroll_to_bottom(&layout);
+        }
 
-        } 
-        
         else if (c == '\b') {
             if (input_len > 0) input_buf[--input_len] = '\0';
+        }
 
-        } 
-        
         else if (c >= 32 && c <= 126 && input_len < INPUT_MAX - 1) {
             input_buf[input_len++] = (char)c;
             input_buf[input_len]   = '\0';
         }
     }
+
+    clamp_scroll(&layout);
 }
 
 void shell_draw(int wid) {
-    wm_canvas_t cv = wm_get_canvas(wid);
-    int cw = cv.w, ch = cv.h;
+    shell_layout_t L = compute_layout(wid);
+    int cw = L.cw, ch = L.ch;
 
     wm_begin_draw(wid);
     wm_draw_fill_rec((rec){0, 0, cw, ch}, C_BG);
 
-    int input_area_h = LINE_H + PADDING_Y;
-    int visible = (ch - input_area_h) / LINE_H;
-    if (visible < 1) visible = 1;
-
-    for (int i = 0; i < visible; i++) {
+    for (int i = 0; i < L.visible; i++) {
         int idx = scroll_top + i;
         if (idx >= line_count) break;
         wm_draw_text(lines[idx].text, (vec2){PADDING_X, PADDING_Y + i * LINE_H}, lines[idx].color);
     }
 
-    int sep_y = ch - input_area_h;
+    wm_draw_fill_rec((rec){L.sb_x, L.sb_y0, 8, L.sb_h}, C_SCROLLBAR_BG);
+
+    if (L.total_lines > L.visible) {
+        int thumb_h = L.sb_h * L.visible / L.total_lines;
+        if (thumb_h < 10) thumb_h = 10;
+
+        int max_scroll = L.total_lines - L.visible;
+        int max_track = L.sb_h - thumb_h;
+        if (max_track < 1) max_track = 1;
+
+        int thumb_y = L.sb_y0 + max_track * scroll_top / (max_scroll > 0 ? max_scroll : 1);
+
+        wm_draw_fill_rec((rec){L.sb_x + 1, thumb_y, 6, thumb_h},
+            scrollbar_dragging ? C_SCROLLBAR_FG_ACTIVE : C_SCROLLBAR_FG);
+    }
+
+    int sep_y = ch - L.input_area_h;
     wm_draw_line((vec2){0, sep_y}, (vec2){cw, sep_y}, (gfx_color_t){50, 50, 50, 255});
 
     int py = sep_y + PADDING_Y / 2;
