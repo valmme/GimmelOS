@@ -7,35 +7,40 @@
 #include "lib/kstring.h"
 #include "lib/math.h"
 
-#define COLOR_BG            ((gfx_color_t){40, 40, 40, 255})
-#define COLOR_TEXT          ((gfx_color_t){220, 220, 220, 255})
-#define COLOR_TEXT_SELECTED ((gfx_color_t){255, 255, 255, 255})
-#define COLOR_FACE          ((gfx_color_t){60, 60, 60, 255})
-#define COLOR_HILIGHT       ((gfx_color_t){255, 255, 255, 255})
-#define COLOR_SHADOW        ((gfx_color_t){15, 15, 15, 255})
-#define COLOR_PATH_BG       COLOR_FACE
-#define COLOR_TOOLBAR_BG    COLOR_FACE
-#define COLOR_SEL_NEAR      ((gfx_color_t){50, 100, 210, 255})
-#define COLOR_SEL_FAR       ((gfx_color_t){10, 30, 90, 255})
+#define COLOR_BG                  ((gfx_color_t){40, 40, 40, 255})
+#define COLOR_TEXT                ((gfx_color_t){220, 220, 220, 255})
+#define COLOR_TEXT_SELECTED       ((gfx_color_t){255, 255, 255, 255})
+#define COLOR_FACE                ((gfx_color_t){60, 60, 60, 255})
+#define COLOR_HILIGHT             ((gfx_color_t){255, 255, 255, 255})
+#define COLOR_SHADOW              ((gfx_color_t){15, 15, 15, 255})
+#define COLOR_PATH_BG             COLOR_FACE
+#define COLOR_TOOLBAR_BG          COLOR_FACE
+#define COLOR_SEL_NEAR            ((gfx_color_t){50, 100, 210, 255})
+#define COLOR_SEL_FAR             ((gfx_color_t){10, 30, 90, 255})
+#define COLOR_SCROLLBAR_BG        ((gfx_color_t){25, 25, 25, 255})
+#define COLOR_SCROLLBAR_FG        ((gfx_color_t){90, 90, 90, 255})
+#define COLOR_SCROLLBAR_FG_ACTIVE ((gfx_color_t){140, 140, 140, 255})
 
-#define TOOLBAR_MARGIN 8
-#define BTN_GAP        6
-#define TOOLBAR_Y      20
-#define TOOLBAR_H      30
+#define TOOLBAR_MARGIN  8
+#define BTN_GAP         6
+#define TOOLBAR_Y       20
+#define TOOLBAR_H       30
 #define TOOLBAR_PANEL_H (TOOLBAR_H + 8)
 
-#define LIST_TOP    (16 + TOOLBAR_PANEL_H)
-#define ITEM_Y0     (LIST_TOP + 5)
-#define ITEM_H      34
+#define LIST_TOP (16 + TOOLBAR_PANEL_H)
+#define ITEM_Y0  (LIST_TOP + 5)
+#define ITEM_H   34
 
-#define ICON_PAD_X      4
-#define ICON_PAD_Y      1
-#define ICON_TEXT_GAP   4
-#define TEXT_X_OFFSET   (ICON_PAD_X + ICON_W + ICON_TEXT_GAP)
+#define ICON_PAD_X    4
+#define ICON_PAD_Y    1
+#define ICON_TEXT_GAP 4
+#define TEXT_X_OFFSET (ICON_PAD_X + ICON_W + ICON_TEXT_GAP)
 
-#define MENU_W      110
-#define MENU_ROW_H  30
-#define MENU_ROWS   3
+#define MENU_W     110
+#define MENU_ROW_H 30
+#define MENU_ROWS  3
+
+#define SCROLLBAR_W 8
 
 enum mode_e {
     MODE_NORMAL,
@@ -52,9 +57,11 @@ uint32_t current_path;
 static char file_names[FS_MAX_INODES][FS_MAX_NAME];
 static int file_count = 0;
 static int selected_idx = 0;
+static int scroll_top = 0;
 
 static int prev_right = 0;
 static int prev_left = 0;
+static int scrollbar_dragging = 0;
 
 static int menu_open = 0;
 static int menu_x, menu_y;
@@ -66,6 +73,44 @@ static int input_len = 0;
 static int clipboard_valid = 0;
 static int clipboard_id = -1;
 static char clipboard_name[FS_MAX_NAME];
+
+typedef struct {
+    int list_y0, list_h;
+    int visible_items;
+    int sb_x, sb_y0, sb_h;
+} explorer_layout_t;
+
+static explorer_layout_t compute_layout(wm_canvas_t canvas) {
+    explorer_layout_t L;
+
+    L.list_y0 = ITEM_Y0;
+    L.list_h = (int32_t)canvas.h - L.list_y0 - 4;
+    if (L.list_h < 0) L.list_h = 0;
+
+    L.visible_items = L.list_h / ITEM_H;
+    if (L.visible_items < 1) L.visible_items = 1;
+
+    L.sb_x = (int32_t)canvas.w - SCROLLBAR_W - 2;
+    L.sb_y0 = LIST_TOP + 1;
+    L.sb_h = (int32_t)canvas.h - L.sb_y0 - 1;
+    if (L.sb_h < 1) L.sb_h = 1;
+
+    return L;
+}
+
+static void clamp_scroll(explorer_layout_t* L) {
+    int max_scroll = file_count - L->visible_items;
+    if (max_scroll < 0) max_scroll = 0;
+    if (scroll_top > max_scroll) scroll_top = max_scroll;
+    if (scroll_top < 0) scroll_top = 0;
+}
+
+static void ensure_selected_visible(explorer_layout_t* L) {
+    if (selected_idx < scroll_top) scroll_top = selected_idx;
+    else if (selected_idx >= scroll_top + L->visible_items) scroll_top = selected_idx - L->visible_items + 1;
+
+    clamp_scroll(L);
+}
 
 static int ends_with(const char *str, const char *ext) {
     int slen = kstrlen(str);
@@ -107,6 +152,8 @@ static void refresh_file_list() {
     if (selected_idx >= file_count) {
         selected_idx = 0;
     }
+
+    scroll_top = 0;
 }
 
 static void append_int(char* buf, int n) {
@@ -241,8 +288,10 @@ static void delete_selected(void) {
 void explorer_init(int wid) {
     current_path = 0;
     selected_idx = 0;
+    scroll_top = 0;
     prev_left = 0;
     prev_right = 0;
+    scrollbar_dragging = 0;
     menu_open = 0;
     mode = MODE_NORMAL;
     clipboard_valid = 0;
@@ -306,6 +355,9 @@ static void handle_input_key(int key) {
 }
 
 void explorer_update(int wid) {
+    wm_canvas_t canvas = wm_get_canvas(wid);
+    explorer_layout_t L = compute_layout(canvas);
+
     int key = keyboard_getchar_nonblocking();
 
     if (key) {
@@ -316,11 +368,17 @@ void explorer_update(int wid) {
         else {
             switch (key) {
                 case KEY_DOWN:
-                    if (file_count > 0) selected_idx = (selected_idx + 1) % file_count;
+                    if (file_count > 0) {
+                        selected_idx = (selected_idx + 1) % file_count;
+                        ensure_selected_visible(&L);
+                    }
                     break;
 
                 case KEY_UP:
-                    if (file_count > 0) selected_idx = (selected_idx - 1 + file_count) % file_count;
+                    if (file_count > 0) {
+                        selected_idx = (selected_idx - 1 + file_count) % file_count;
+                        ensure_selected_visible(&L);
+                    }
                     break;
 
                 case '\n':
@@ -340,19 +398,45 @@ void explorer_update(int wid) {
     }
 
     if (wm.focused == wid && mode == MODE_NORMAL) {
-        wm_canvas_t canvas = wm_get_canvas(wid);
         int rel_x = mouse.pos.x - canvas.x;
         int rel_y = mouse.pos.y - canvas.y;
 
-        if (!menu_open) {
+        int over_scrollbar = file_count > L.visible_items &&
+            rel_x >= L.sb_x && rel_x < L.sb_x + SCROLLBAR_W &&
+            rel_y >= L.sb_y0 && rel_y < L.sb_y0 + L.sb_h;
+
+        if (!menu_open && (scrollbar_dragging || (over_scrollbar && mouse.left && !prev_left))) {
+            scrollbar_dragging = mouse.left ? 1 : 0;
+
+            if (mouse.left) {
+                int thumb_h = L.sb_h * L.visible_items / file_count;
+                if (thumb_h < 10) thumb_h = 10;
+
+                int max_track = L.sb_h - thumb_h;
+                if (max_track < 1) max_track = 1;
+
+                int max_scroll = file_count - L.visible_items;
+
+                int rel_drag_y = rel_y - L.sb_y0 - thumb_h / 2;
+                int new_scroll = rel_drag_y * max_scroll / max_track;
+
+                if (new_scroll < 0) new_scroll = 0;
+                if (new_scroll > max_scroll) new_scroll = max_scroll;
+                scroll_top = new_scroll;
+            }
+        }
+
+        else if (!menu_open) {
             int hit_idx = -1;
             int item_y = ITEM_Y0;
 
-            for (int i = 0; i < file_count; i++) {
+            for (int row = 0; row < L.visible_items; row++) {
+                int abs_idx = scroll_top + row;
+                if (abs_idx >= file_count) break;
                 if (item_y + ITEM_H > (int32_t)canvas.h) break;
 
-                if (rel_x >= 4 && rel_x < (int32_t)canvas.w - 4 && rel_y >= item_y && rel_y < item_y + ITEM_H) {
-                    hit_idx = i;
+                if (rel_x >= 4 && rel_x < L.sb_x - 2 && rel_y >= item_y && rel_y < item_y + ITEM_H) {
+                    hit_idx = abs_idx;
                     break;
                 }
 
@@ -390,6 +474,10 @@ void explorer_update(int wid) {
         }
     }
 
+    if (!mouse.left) scrollbar_dragging = 0;
+
+    clamp_scroll(&L);
+
     prev_right = mouse.right;
     prev_left = mouse.left;
 }
@@ -408,6 +496,8 @@ void explorer_draw(int wid) {
     wm_begin_draw(wid);
 
     wm_canvas_t canvas = wm_get_canvas(wid);
+    explorer_layout_t L = compute_layout(canvas);
+
     wm_draw_fill_rec((rec){0, 0, canvas.w, canvas.h}, COLOR_BG);
 
     char path_str[128];
@@ -426,6 +516,22 @@ void explorer_draw(int wid) {
     rec list_border = {0, LIST_TOP, canvas.w, canvas.h - LIST_TOP};
     draw_bevel_rec(list_border, 0);
 
+    wm_draw_fill_rec((rec){L.sb_x, L.sb_y0, SCROLLBAR_W, L.sb_h}, COLOR_SCROLLBAR_BG);
+
+    if (file_count > L.visible_items) {
+        int thumb_h = L.sb_h * L.visible_items / file_count;
+        if (thumb_h < 10) thumb_h = 10;
+
+        int max_scroll = file_count - L.visible_items;
+        int max_track = L.sb_h - thumb_h;
+        if (max_track < 1) max_track = 1;
+
+        int thumb_y = L.sb_y0 + max_track * scroll_top / (max_scroll > 0 ? max_scroll : 1);
+
+        wm_draw_fill_rec((rec){L.sb_x + 1, thumb_y, SCROLLBAR_W - 2, thumb_h},
+            scrollbar_dragging ? COLOR_SCROLLBAR_FG_ACTIVE : COLOR_SCROLLBAR_FG);
+    }
+
     int item_y = ITEM_Y0;
 
     if (file_count == 0) {
@@ -433,10 +539,12 @@ void explorer_draw(int wid) {
     }
 
     else {
-        for (int i = 0; i < file_count; i++) {
+        for (int row = 0; row < L.visible_items; row++) {
+            int i = scroll_top + row;
+            if (i >= file_count) break;
             if (item_y + ITEM_H > (int32_t)canvas.h - 4) break;
 
-            rec item_rec = {4, item_y, canvas.w - 8, (uint32_t)ITEM_H};
+            rec item_rec = {4, item_y, L.sb_x - 6, (uint32_t)ITEM_H};
             int is_selected = (i == selected_idx);
 
             gfx_color_t item_bg = is_selected ? COLOR_SEL_NEAR : COLOR_BG;
