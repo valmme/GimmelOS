@@ -55,6 +55,7 @@ extern wm_t wm;
 uint32_t current_path;
 
 static char file_names[FS_MAX_INODES][FS_MAX_NAME];
+static uint32_t file_sizes[FS_MAX_INODES];
 static int file_count = 0;
 static int selected_idx = 0;
 static int scroll_top = 0;
@@ -165,10 +166,21 @@ static void refresh_file_list() {
     fs_list_names(current_path, temp_names, &fs_count);
 
     for (int i = 0; i < fs_count; i++) {
-        if (file_count < FS_MAX_INODES) {
-            kstrncpy(file_names[file_count], temp_names[i], FS_MAX_NAME);
-            file_count++;
-        }
+        kstrncpy(file_names[file_count], temp_names[i], FS_MAX_NAME);
+
+        char name[FS_MAX_NAME];
+        kstrncpy(name, temp_names[i], FS_MAX_NAME);
+        strip_dir_slash(name);
+
+        int id = fs_find_in(name, current_path);
+
+        if (id >= 0)
+            file_sizes[file_count] = fs_get_size(id);
+            
+        else
+            file_sizes[file_count] = 0;
+
+        file_count++;
     }
 
     if (selected_idx >= file_count) {
@@ -585,6 +597,8 @@ void explorer_draw(int wid) {
             char display_name[FS_MAX_NAME + 4];
             int draw_folder_icon = 0;
 
+            int text_y = item_y + (ITEM_H - FB_CHAR_H) / 2;
+
             if (kstrcmp(file_names[i], "..") == 0) {
                 kstrncpy(display_name, "..", sizeof(display_name));
                 draw_folder_icon = 1;
@@ -607,35 +621,19 @@ void explorer_draw(int wid) {
                 else kmemcpy(icon, file_icon, sizeof(icon));
 
                 wm_draw_texture(icon, (vec2){item_rec.x + ICON_PAD_X, item_y + ICON_PAD_Y}, (vec2){ICON_W, ICON_H});
+
+                char size_str[16];
+                format_size(file_sizes[i], size_str);
+
+                int text_w = kstrlen(size_str) * FB_CHAR_W;
+                wm_draw_text(size_str, (vec2){L.sb_x - text_w - 6, text_y}, text_color);
             }
 
             if (draw_folder_icon) {
                 wm_draw_texture(folder_icon, (vec2){item_rec.x + ICON_PAD_X, item_y + ICON_PAD_Y}, (vec2){ICON_W, ICON_H});
             }
 
-            int text_y = item_y + (ITEM_H - FB_CHAR_H) / 2;
-            wm_draw_text(display_name, (vec2){item_rec.x + TEXT_X_OFFSET, text_y}, text_color);
-
-            if (kstrcmp(file_names[i], "..") != 0) {
-                char lookup[FS_MAX_NAME];
-                kstrncpy(lookup, file_names[i], FS_MAX_NAME);
-                strip_dir_slash(lookup);
-
-                int id = fs_find_in(lookup, current_path);
-
-                if (id >= 0) {
-                    char size_text[32];
-                    format_size(fs_get_size(id), size_text);
-
-                    int text_w = kstrlen(size_text) * FB_CHAR_W;
-                    wm_draw_text(
-                        size_text,
-                        (vec2){L.sb_x - text_w - 8, text_y},
-                        text_color
-                    );
-                }
-            }
-        
+            wm_draw_text(display_name, (vec2){item_rec.x + TEXT_X_OFFSET, text_y}, text_color);        
             item_y += ITEM_H;
         }
     }
@@ -661,7 +659,7 @@ void explorer_draw(int wid) {
             gfx_color_t row_fg = (r == hover_row) ? COLOR_TEXT_SELECTED : COLOR_TEXT;
 
             wm_draw_fill_rec(row_rect, row_bg);
-            wm_draw_text(labels[r], (vec2){menu_x + 10, menu_y + 2 + r * MENU_ROW_H + 9}, row_fg);
+            wm_draw_text(labels[r], (vec2){menu_x + 10, menu_y - 2 + r * MENU_ROW_H + 9}, row_fg);
 
             if (r < MENU_ROWS - 1) {
                 wm_draw_line(
@@ -675,7 +673,7 @@ void explorer_draw(int wid) {
 
     if (mode != MODE_NORMAL) {
         int box_w = canvas.w > 220 ? 220 : (int32_t)canvas.w - 20;
-        rec box = {40, 60, (uint32_t)box_w, 50};
+        rec box = {40, 60, (uint32_t)box_w, 70};
 
         wm_draw_fill_rec(box, COLOR_FACE);
         draw_bevel_rec(box, 1);
@@ -684,10 +682,21 @@ void explorer_draw(int wid) {
 
         wm_draw_text(label, (vec2){box.x + 6, box.y + 8}, COLOR_TEXT);
 
-        rec input_rect = {box.x + 6, box.y + 22, box.w - 12, 18};
+        wm_draw_fill_rec(box, COLOR_FACE);
+        draw_bevel_rec(box, 1);
+
+        wm_draw_text(label, (vec2){box.x + 6, box.y + 8}, COLOR_TEXT);
+
+        rec input_rect = {box.x + 6, box.y + 28, box.w - 12, 26};
+
         wm_draw_fill_rec(input_rect, COLOR_SHADOW);
         draw_bevel_rec(input_rect, 0);
-        wm_draw_text(input_buffer, (vec2){input_rect.x + 2, input_rect.y + 2}, COLOR_TEXT_SELECTED);
+
+        wm_draw_text(
+            input_buffer,
+            (vec2){input_rect.x + 2, input_rect.y + (input_rect.h - FB_CHAR_H) / 2},
+            COLOR_TEXT_SELECTED
+        );
     }
 
     wm_end_draw();
