@@ -3,10 +3,12 @@
 
 #include "kernel/io.h"
 #include "lib/types.h"
+#include "unifont.h"
 #include "wm.h"
 
 #define FB_CHAR_W 8
-#define FB_CHAR_H 8
+#define FB_CHAR_H 16
+
 
 extern uint32_t* framebuffer;
 extern uint32_t width;
@@ -79,6 +81,7 @@ extern const uint8_t font[128][8];
 
 extern uint32_t* backbuffer;
 
+const glyph_t* unifont_get(uint32_t cp);
 uint8_t reverse_bits(uint8_t b);
 void gfx_init(vec2 res, uint32_t p, uint32_t* fb);
 

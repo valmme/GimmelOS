@@ -1,6 +1,7 @@
 #include "gfx/wm.h"
 #include "lib/kstring.h"
 #include "lib/math.h"
+#include "gfx/unifont.h"
 
 wm_t wm;
 
@@ -708,13 +709,13 @@ void wm_draw_line(vec2 a, vec2 b, gfx_color_t color) {
 }
 
 void wm_putchar_ex(char c, vec2 pos, gfx_color_t fg, int scale) {
-    const uint8_t* glyph = font[(uint8_t)c];
+    const glyph_t* glyph = unifont_get((uint8_t)c);
 
-    for (int row = 0; row < 8; row++) {
-        uint8_t bits = glyph[row];
+    for (int row = 0; row < FB_CHAR_H; row++) {
+        uint8_t bits = glyph->bitmap[row];
 
-        for (int col = 0; col < 8; col++) {
-            int is_fg = bits & (0x80 >> (7 - col));
+        for (int col = 0; col < FB_CHAR_W; col++) {
+            int is_fg = bits & (0x80 >> col);
             if (!is_fg) continue;
 
             for (int sy = 0; sy < scale; sy++) {
