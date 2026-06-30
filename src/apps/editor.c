@@ -5,8 +5,6 @@
 #include "lib/kstring.h"
 #include "apps/editor.h"
 
-#define CHAR_W 8
-#define CHAR_H 8
 #define SCALE 1
 
 #define TOOLBAR_H 20
@@ -16,7 +14,7 @@
 #define EDITOR_PADDING_X 6
 #define EDITOR_PADDING_Y 6
 #define EDITOR_LINE_SPACING 2
-#define EDITOR_LINE_HEIGHT (CHAR_H*  SCALE + EDITOR_LINE_SPACING)
+#define EDITOR_LINE_HEIGHT (FB_CHAR_H * SCALE + EDITOR_LINE_SPACING)
 
 #define EDITOR_BUF 4096
 #define EDITOR_NAME "Lito"
@@ -256,7 +254,7 @@ static editor_layout_t compute_layout(int wid) {
     L.cw = canvas.w;
     L.ch = canvas.h;
     L.total_lines = count_total_lines();
-    L.linenum_w = (digits(L.total_lines) + 1) * CHAR_W * SCALE + EDITOR_PADDING_X * 2;
+    L.linenum_w = (digits(L.total_lines) + 1) * FB_CHAR_W * SCALE + EDITOR_PADDING_X * 2;
 
     int available_h = L.ch - HEADER_H - STATUSBAR_H - EDITOR_LINE_HEIGHT;
     L.visible_rows = available_h / EDITOR_LINE_HEIGHT;
@@ -287,9 +285,9 @@ static void rc_newline(render_ctx_t* rc) {
 static void rc_emit(render_ctx_t* rc, char c) {
     int rel = rc->cur_line - scroll_top;
     if (rel >= 0 && rel < rc->visible_rows) {
-        int px = rc->text_x0 + rc->cur_col * CHAR_W * SCALE;
+        int px = rc->text_x0 + rc->cur_col * FB_CHAR_W * SCALE;
         int py = HEADER_H + EDITOR_PADDING_Y + rel * EDITOR_LINE_HEIGHT;
-        if (px >= rc->text_x0 && px + CHAR_W * SCALE <= rc->canvas_w)
+        if (px >= rc->text_x0 && px + FB_CHAR_W * SCALE <= rc->canvas_w)
             wm_putchar_ex(c, (vec2){px, py}, rc->cur_color, SCALE);
     }
 
@@ -467,7 +465,7 @@ void editor_draw(int wid) {
         wm_draw_text_ex(EDITOR_NAME "  |  ^S Save", (vec2){EDITOR_PADDING_X, ty}, C_TEXT, SCALE);
 
         const char* lang = is_c_file(current_path_display) ? "C/C++" : "Plain";
-        int lw = kstrlen(lang) * CHAR_W * SCALE;
+        int lw = kstrlen(lang) * FB_CHAR_W * SCALE;
         wm_draw_text_ex(lang, (vec2){cw - lw - EDITOR_PADDING_X, ty}, C_LINENUM, SCALE);
     }
 
@@ -486,7 +484,7 @@ void editor_draw(int wid) {
 
         { char rev[12]; int ri = 0, x = cursor_col + 1; while (x > 0) { rev[ri++] = '0' + x % 10; x /= 10; } for (int k = ri - 1; k >= 0; k--) lc[li++] = rev[k]; }
         lc[li] = 0;
-        int lcw = kstrlen(lc) * CHAR_W * SCALE;
+        int lcw = kstrlen(lc) * FB_CHAR_W * SCALE;
 
         wm_draw_text_ex(lc, (vec2){cw - lcw - EDITOR_PADDING_X, sy}, C_LINENUM, SCALE);
         wm_draw_text_ex(current_path_display, (vec2){EDITOR_PADDING_X, sy}, C_TEXT, SCALE);
@@ -532,7 +530,7 @@ void editor_draw(int wid) {
         gfx_color_t fg = (abs_line == cursor_line) ? C_TEXT : C_LINENUM;
 
         int num_digits = digits(abs_line + 1);
-        int px = L.linenum_w - EDITOR_PADDING_X - num_digits * CHAR_W * SCALE;
+        int px = L.linenum_w - EDITOR_PADDING_X - num_digits * FB_CHAR_W * SCALE;
         int py = HEADER_H + EDITOR_PADDING_Y + r * EDITOR_LINE_HEIGHT;
 
         draw_int(abs_line + 1, (vec2){px, py}, fg, C_FACE);
@@ -558,8 +556,8 @@ void editor_draw(int wid) {
                 else continue;
             }
 
-            int rx = L.text_x0 + col_from * CHAR_W * SCALE;
-            int rw = (col_to - col_from) * CHAR_W * SCALE;
+            int rx = L.text_x0 + col_from * FB_CHAR_W * SCALE;
+            int rw = (col_to - col_from) * FB_CHAR_W * SCALE;
             int ry = HEADER_H + EDITOR_PADDING_Y + rel * EDITOR_LINE_HEIGHT;
 
             wm_draw_fill_rec((rec){rx, ry, rw, EDITOR_LINE_HEIGHT}, C_SELECTION);
@@ -582,7 +580,7 @@ void editor_draw(int wid) {
     {
         int rel = cursor_line - scroll_top;
         if (rel >= 0 && rel < L.visible_rows) {
-            int cx = L.text_x0 + cursor_col * CHAR_W * SCALE;
+            int cx = L.text_x0 + cursor_col * FB_CHAR_W * SCALE;
             int cy = HEADER_H + EDITOR_PADDING_Y + rel * EDITOR_LINE_HEIGHT;
             wm_draw_fill_rec((rec){cx, cy, 2, EDITOR_LINE_HEIGHT}, C_CURSOR);
         }
@@ -647,7 +645,7 @@ static void editor_handle_mouse(int wid, editor_layout_t* L) {
         int start = find_line_start(target_line);
         int llen = line_length(start);
 
-        int col = (mx - L->text_x0) / (CHAR_W * SCALE);
+        int col = (mx - L->text_x0) / (FB_CHAR_W * SCALE);
         if (col < 0) col = 0;
         if (col > llen) col = llen;
 

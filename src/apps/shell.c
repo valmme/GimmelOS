@@ -11,11 +11,9 @@
 #include "apps/q3d.h"
 #include "apps/explorer/explorer.h"
 
-#define CHAR_W     8
-#define CHAR_H     8
 #define PADDING_X  6
 #define PADDING_Y  6
-#define LINE_H     10
+#define LINE_H     (FB_CHAR_H + 2)
 #define INPUT_MAX  256
 #define LINES_MAX  200
 #define LINE_BUF_W 128
@@ -424,7 +422,7 @@ void shell_init(int wid) {
     scrollbar_dragging = 0;
 
     push_line("+---------------------------------+", C_PROMPT);
-    push_line("|       GimmelOS  v0.1            |", C_TEXT);
+    push_line("|         GimmelOS  v0.1          |", C_TEXT);
     push_line("+---------------------------------+", C_PROMPT);
     push_line("Type 'help' for commands.", C_TEXT);
     push_line("", C_TEXT);
@@ -498,14 +496,14 @@ void shell_draw(int wid) {
     int px = PADDING_X;
 
     wm_draw_text(cwd_path, (vec2){px, py}, C_PATH);
-    px += kstrlen(cwd_path) * CHAR_W;
+    px += kstrlen(cwd_path) * FB_CHAR_W;
 
     wm_draw_text(" > ", (vec2){px, py}, C_PROMPT);
-    px += 3 * CHAR_W;
+    px += 3 * FB_CHAR_W;
 
     wm_draw_text(input_buf, (vec2){px, py}, C_INPUT);
-    px += input_len * CHAR_W;
+    px += input_len * FB_CHAR_W;
 
-    wm_draw_fill_rec((rec){px, py, 2, CHAR_H}, C_CURSOR);
+    wm_draw_fill_rec((rec){px, py, 2, FB_CHAR_H}, C_CURSOR);
     wm_end_draw();
 }

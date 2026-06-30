@@ -587,7 +587,7 @@ void wm_draw(int id) {
     gfx_color_t far_color = w->focused ? (gfx_color_t){ 0, 0, 80, 255 } : (gfx_color_t){ 64, 64, 64, 255 };
 
     wm98_draw_dither_gradient(title_bar, near_color, far_color);
-    gfx_print(w->title, (vec2){ title_bar.x + 4, title_bar.y + 5 }, title_fg);
+    gfx_print(w->title, (vec2){ title_bar.x + 4, title_bar.y }, title_fg);
 
     rec rc = wm_btn_rect(w, 0);
     wm98_draw_bevel(rc, 1);
