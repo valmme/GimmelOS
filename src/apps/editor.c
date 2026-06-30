@@ -16,7 +16,7 @@
 #define EDITOR_LINE_SPACING 2
 #define EDITOR_LINE_HEIGHT (FB_CHAR_H * SCALE + EDITOR_LINE_SPACING)
 
-#define EDITOR_BUF 4096
+#define EDITOR_BUF (128 * 1024)
 #define EDITOR_NAME "Lito"
 
 #define C_BG            (gfx_color_t){24, 24, 24, 255}
