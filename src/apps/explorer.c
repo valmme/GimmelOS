@@ -80,6 +80,28 @@ typedef struct {
     int sb_x, sb_y0, sb_h;
 } explorer_layout_t;
 
+static void format_size(uint32_t bytes, char *out) {
+    if (bytes < 1024) {
+        u32toa(bytes, out);
+        kstrcat(out, " B");
+    } 
+    
+    else if (bytes < 1024 * 1024) {
+        u32toa(bytes / 1024, out);
+        kstrcat(out, " KB");
+    } 
+    
+    else if (bytes < 1024 * 1024 * 1024) {
+        u32toa(bytes / (1024 * 1024), out);
+        kstrcat(out, " MB");
+    } 
+    
+    else {
+        u32toa(bytes / (1024 * 1024 * 1024), out);
+        kstrcat(out, " GB");
+    }
+}
+
 static explorer_layout_t compute_layout(wm_canvas_t canvas) {
     explorer_layout_t L;
 
@@ -593,6 +615,27 @@ void explorer_draw(int wid) {
 
             int text_y = item_y + (ITEM_H - FB_CHAR_H) / 2;
             wm_draw_text(display_name, (vec2){item_rec.x + TEXT_X_OFFSET, text_y}, text_color);
+
+            if (kstrcmp(file_names[i], "..") != 0) {
+                char lookup[FS_MAX_NAME];
+                kstrncpy(lookup, file_names[i], FS_MAX_NAME);
+                strip_dir_slash(lookup);
+
+                int id = fs_find_in(lookup, current_path);
+
+                if (id >= 0) {
+                    char size_text[32];
+                    format_size(fs_get_size(id), size_text);
+
+                    int text_w = kstrlen(size_text) * FB_CHAR_W;
+                    wm_draw_text(
+                        size_text,
+                        (vec2){L.sb_x - text_w - 8, text_y},
+                        text_color
+                    );
+                }
+            }
+        
             item_y += ITEM_H;
         }
     }
