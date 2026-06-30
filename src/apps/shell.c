@@ -2,6 +2,7 @@
 #include "gfx/wm.h"
 #include "drivers/keyboard.h"
 #include "kernel/io.h"
+#include "kernel/sysinfo.h"
 #include "fs.h"
 #include "lib/kstring.h"
 
@@ -183,10 +184,6 @@ static void spe(const char* s) { shell_print(s, C_ERROR); }
 
 static void read_command(const char* input);
 
-static void cpuid_call(uint32_t code, uint32_t* a, uint32_t* b, uint32_t* c, uint32_t* d) {
-    __asm__ volatile("cpuid" : "=a"(*a),"=b"(*b),"=c"(*c),"=d"(*d) : "a"(code));
-}
-
 static void cmd_help(const char* args) {
     if (args && kstrcmp(args, "2") == 0) {
         sp("Commands (page 2):");
@@ -305,22 +302,63 @@ static void cmd_rmdir(const char* args) {
     if (!fs_rmdir_by_id(id)) spe("rmdir: failed");
 }
 
+
 static void cmd_info(void) {
+    char buf[128];
+    char num[16];
+
     sp("=== GimmelOS SYSTEM INFO ===");
-    sp("OS: GimmelOS v0.1     |  Arch: x86 32-bit");
-    sp("Boot: GRUB Multiboot  |  GFX: framebuffer");
-    sp("Input: PS/2 polling   |  Mem: flat, no paging");
+    sp("");
 
-    uint32_t a, b, c, d;
-    cpuid_call(0, &a, &b, &c, &d);
+    kstrcpy(buf, "OS: ", sizeof(buf));
+    kstrcat(buf, sys_get_os());
+    sp(buf);
 
-    static const char hex[] = "0123456789ABCDEF";
-    char tmp[64];
-    kstrncpy(tmp, "CPU eax=0x", 64);
-    int ti = kstrlen(tmp);
-    for (int sh = 28; sh >= 0; sh -= 4) tmp[ti++] = hex[(a >> sh) & 0xF];
-    tmp[ti] = '\0';
-    sp(tmp);
+    kstrcpy(buf, "Architecture: ", sizeof(buf));
+    kstrcat(buf, sys_get_arch());
+    sp(buf);
+
+    kstrcpy(buf, "Bootloader: ", sizeof(buf));
+    kstrcat(buf, sys_get_bootloader());
+    sp(buf);
+
+    sp("");
+
+    kstrcpy(buf, "CPU: ", sizeof(buf));
+    kstrcat(buf, sys_get_cpu_name());
+    sp(buf);
+
+    kstrcpy(buf, "Vendor: ", sizeof(buf));
+    kstrcat(buf, sys_get_cpu_vendor());
+    sp(buf);
+
+    if (sys_get_cpu_freq()) {
+        kstrcpy(buf, "Frequency: ", sizeof(buf));
+        u32toa(sys_get_cpu_freq(), num);
+        kstrcat(buf, num);
+        kstrcat(buf, " MHz");
+        sp(buf);
+    }
+
+    kstrcpy(buf, "RAM: ", sizeof(buf));
+    u32toa(sys_get_ram_mb(), num);
+    kstrcat(buf, num);
+    kstrcat(buf, " MB");
+    sp(buf);
+
+    kstrcpy(buf, "Screen: ", sizeof(buf));
+
+    u32toa(sys_get_screen_width(), num);
+    kstrcat(buf, num);
+    kstrcat(buf, "x");
+
+    u32toa(sys_get_screen_height(), num);
+    kstrcat(buf, num);
+    kstrcat(buf, " ");
+
+    sp(buf);
+
+    sp("");
     sp("============================");
 }
 

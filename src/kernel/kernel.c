@@ -1,3 +1,4 @@
+#include "kernel/kernel.h"
 #include "kernel/io.h"
 #include "kernel/time.h"
 #include "gfx/gfx.h"
@@ -10,6 +11,7 @@
 #include "apps/shell.h"
 #include "apps/debug.h"
 
+struct multiboot_info* multiboot = 0;
 uint8_t debug_created = 0;
 
 void shell_run(void);
@@ -32,17 +34,15 @@ void kernel_main(uint32_t magic, uint32_t addr) {
         // vga_warn("Not multiboot");
     }
 
-    struct multiboot_info* mbi = (struct multiboot_info*)addr;
+    multiboot = (struct multiboot_info*)addr;
 
-    if (!(mbi->flags & (1 << 12))) {
-        // vga_error("No framebuffer!");
+    if (!(multiboot->flags & (1 << 12)))
         return;
-    }
 
-    framebuffer = (uint32_t*)mbi->framebuffer_addr_low;
-    width = mbi->framebuffer_width;
-    height = mbi->framebuffer_height;
-    pitch = mbi->framebuffer_pitch;
+    framebuffer = (uint32_t*)multiboot->framebuffer_addr_low;
+    width = multiboot->framebuffer_width;
+    height = multiboot->framebuffer_height;
+    pitch = multiboot->framebuffer_pitch;
 
     gfx_init((vec2){width, height}, pitch, framebuffer);
     gfx_render_frame();

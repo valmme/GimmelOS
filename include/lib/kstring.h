@@ -87,8 +87,46 @@ static inline void* kmemcpy(void* dest, const void* src, unsigned int n) {
     return dest;
 }
 
-static inline int ksprintf(char* out, const char* fmt, ...) {
+static inline void* kmemmove(void* dst, const void* src, uint32_t size) {
+    uint8_t* d = (uint8_t*)dst;
+    const uint8_t* s = (const uint8_t*)src;
+
+    if (d < s) {
+        while (size--)
+            *d++ = *s++;
+    } 
     
+    else if (d > s) {
+        d += size;
+        s += size;
+
+        while (size--)
+            *--d = *--s;
+    }
+
+    return dst;
+}
+
+static inline void u32toa(uint32_t value, char* str) {
+    char tmp[16];
+    int i = 0;
+
+    if (value == 0) {
+        str[0] = '0';
+        str[1] = '\0';
+        return;
+    }
+
+    while (value) {
+        tmp[i++] = '0' + (value % 10);
+        value /= 10;
+    }
+
+    int j = 0;
+    while (i)
+        str[j++] = tmp[--i];
+
+    str[j] = '\0';
 }
 
 #endif // GOS_KSTRING_H
