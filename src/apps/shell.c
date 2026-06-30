@@ -250,15 +250,36 @@ static void cmd_ls(const char* args) {
 }
 
 static void cmd_cat(const char* args) {
-    if (!args || !args[0]) { spe("cat: missing path"); return; }
+    if (!args || !args[0]) {
+        spe("cat: missing path");
+        return;
+    }
 
     int id = resolve_path(args);
-    if (id < 0) { spe("cat: not found"); return; }
+    if (id < 0) {
+        spe("cat: not found");
+        return;
+    }
 
-    static uint8_t fbuf[512];
-    kmemset(fbuf, 0, sizeof(fbuf));
-    fs_read_by_id(id, fbuf);
+    uint32_t size = fs_get_size(id);
+
+    uint8_t* fbuf = kmalloc(size + 1);
+    if (!fbuf) {
+        spe("cat: out of memory");
+        return;
+    }
+
+    kmemset(fbuf, 0, size + 1);
+
+    if (!fs_read_by_id(id, fbuf)) {
+        kfree(fbuf);
+        spe("cat: read failed");
+        return;
+    }
+
     shell_print((char*)fbuf, C_TEXT);
+
+    kfree(fbuf);
 }
 
 static void cmd_mk(const char* args) {

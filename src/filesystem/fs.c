@@ -508,3 +508,13 @@ int fs_copy_by_id(int src_id, uint32_t dest_parent, const char* new_name) {
 
     return new_id;
 }
+
+uint32_t fs_get_size(int id) {
+    if (id < 0 || id >= FS_MAX_INODES)
+        return 0;
+
+    if (!inodes[id].used || inodes[id].is_dir)
+        return 0;
+
+    return inodes[id].size;
+}

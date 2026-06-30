@@ -11,6 +11,11 @@
 #include "apps/shell.h"
 #include "apps/debug.h"
 
+extern uint8_t _end;
+
+#define HEAP_START ((void*)&_end)
+#define HEAP_SIZE  (16 * 1024 * 1024)
+
 struct multiboot_info* multiboot = 0;
 uint8_t debug_created = 0;
 
@@ -29,6 +34,7 @@ void kernel_main(uint32_t magic, uint32_t addr) {
     fs_init();
 
     random_init();
+    heap_init((void*)HEAP_START, HEAP_SIZE);
 
     if (magic != 0x2BADB002) {
         // vga_warn("Not multiboot");

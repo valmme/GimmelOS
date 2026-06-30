@@ -60,5 +60,6 @@ void fs_split_path(const char* path, char* dir_out, char* name_out);
 void fs_get_path(int id, char* out, size_t maxlen);
 int fs_rename_by_id(int id, const char* new_name);
 int fs_copy_by_id(int src_id, uint32_t dest_parent, const char* new_name);
+int fs_get_size_by_id(int id);
 
 #endif
