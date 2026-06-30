@@ -8,6 +8,12 @@
 #define FS_MAX_BLOCKS 4096
 #define FS_BLOCK_SIZE 512
 
+#define FS_DIRECT_BLOCKS 10
+#define FS_INDIRECT1_IDX 10
+#define FS_INDIRECT2_IDX 11
+#define FS_BLOCK_PTRS 12
+#define FS_PTRS_PER_BLOCK (FS_BLOCK_SIZE / sizeof(uint32_t))
+
 #define FS_INODES_BYTES   (sizeof(inode_t) * FS_MAX_INODES)
 #define FS_INODE_SECTORS  ((FS_INODES_BYTES + 511) / 512)
 
@@ -24,7 +30,7 @@ typedef struct {
     uint8_t used;
     uint8_t is_dir;
     uint32_t size;
-    uint32_t blocks[8];
+    uint32_t blocks[FS_BLOCK_PTRS];
     uint32_t parent;
 } inode_t;
 
@@ -55,4 +61,4 @@ void fs_get_path(int id, char* out, size_t maxlen);
 int fs_rename_by_id(int id, const char* new_name);
 int fs_copy_by_id(int src_id, uint32_t dest_parent, const char* new_name);
 
-#endif // GOS_FILESYSTEM_H
+#endif

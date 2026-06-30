@@ -258,7 +258,6 @@ static void cmd_cat(const char* args) {
     static uint8_t fbuf[512];
     kmemset(fbuf, 0, sizeof(fbuf));
     fs_read_by_id(id, fbuf);
-    fbuf[511] = '\0';
     shell_print((char*)fbuf, C_TEXT);
 }
 

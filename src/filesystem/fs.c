@@ -37,6 +37,124 @@ static void free_block_lba(uint32_t lba) {
     bitmap[b / 8] &= ~(1 << (b % 8));
 }
 
+static uint32_t get_block(inode_t* inode, uint32_t index, int alloc) {
+    if (index < FS_DIRECT_BLOCKS) {
+        if (inode->blocks[index] == 0 && alloc) {
+            int lba = alloc_block();
+            if (lba < 0) return 0;
+            inode->blocks[index] = lba;
+        }
+        return inode->blocks[index];
+    }
+
+    index -= FS_DIRECT_BLOCKS;
+
+    if (index < FS_PTRS_PER_BLOCK) {
+        if (inode->blocks[FS_INDIRECT1_IDX] == 0) {
+            if (!alloc) return 0;
+            int lba = alloc_block();
+            if (lba < 0) return 0;
+            inode->blocks[FS_INDIRECT1_IDX] = lba;
+            uint32_t zero[FS_PTRS_PER_BLOCK];
+            kmemset(zero, 0, sizeof(zero));
+            ata_write28(lba, (uint8_t*)zero);
+        }
+
+        uint32_t ptrs[FS_PTRS_PER_BLOCK];
+        ata_read28(inode->blocks[FS_INDIRECT1_IDX], (uint8_t*)ptrs);
+
+        if (ptrs[index] == 0) {
+            if (!alloc) return 0;
+            int lba = alloc_block();
+            if (lba < 0) return 0;
+            ptrs[index] = lba;
+            ata_write28(inode->blocks[FS_INDIRECT1_IDX], (uint8_t*)ptrs);
+        }
+
+        return ptrs[index];
+    }
+
+    index -= FS_PTRS_PER_BLOCK;
+    uint32_t outer_idx = index / FS_PTRS_PER_BLOCK;
+    uint32_t inner_idx = index % FS_PTRS_PER_BLOCK;
+
+    if (outer_idx >= FS_PTRS_PER_BLOCK) return 0;
+
+    if (inode->blocks[FS_INDIRECT2_IDX] == 0) {
+        if (!alloc) return 0;
+        int lba = alloc_block();
+        if (lba < 0) return 0;
+        inode->blocks[FS_INDIRECT2_IDX] = lba;
+        uint32_t zero[FS_PTRS_PER_BLOCK];
+        kmemset(zero, 0, sizeof(zero));
+        ata_write28(lba, (uint8_t*)zero);
+    }
+
+    uint32_t outer[FS_PTRS_PER_BLOCK];
+    ata_read28(inode->blocks[FS_INDIRECT2_IDX], (uint8_t*)outer);
+
+    if (outer[outer_idx] == 0) {
+        if (!alloc) return 0;
+        int lba = alloc_block();
+        if (lba < 0) return 0;
+        outer[outer_idx] = lba;
+        ata_write28(inode->blocks[FS_INDIRECT2_IDX], (uint8_t*)outer);
+        uint32_t zero[FS_PTRS_PER_BLOCK];
+        kmemset(zero, 0, sizeof(zero));
+        ata_write28(lba, (uint8_t*)zero);
+    }
+
+    uint32_t inner[FS_PTRS_PER_BLOCK];
+    ata_read28(outer[outer_idx], (uint8_t*)inner);
+
+    if (inner[inner_idx] == 0) {
+        if (!alloc) return 0;
+        int lba = alloc_block();
+        if (lba < 0) return 0;
+        inner[inner_idx] = lba;
+        ata_write28(outer[outer_idx], (uint8_t*)inner);
+    }
+
+    return inner[inner_idx];
+}
+
+static void free_indirect1(uint32_t lba) {
+    uint32_t ptrs[FS_PTRS_PER_BLOCK];
+    ata_read28(lba, (uint8_t*)ptrs);
+    for (uint32_t i = 0; i < FS_PTRS_PER_BLOCK; i++) {
+        if (ptrs[i]) free_block_lba(ptrs[i]);
+    }
+    free_block_lba(lba);
+}
+
+static void free_indirect2(uint32_t lba) {
+    uint32_t outer[FS_PTRS_PER_BLOCK];
+    ata_read28(lba, (uint8_t*)outer);
+    for (uint32_t i = 0; i < FS_PTRS_PER_BLOCK; i++) {
+        if (outer[i]) free_indirect1(outer[i]);
+    }
+    free_block_lba(lba);
+}
+
+static void free_all_blocks(inode_t* inode) {
+    for (int i = 0; i < FS_DIRECT_BLOCKS; i++) {
+        if (inode->blocks[i]) {
+            free_block_lba(inode->blocks[i]);
+            inode->blocks[i] = 0;
+        }
+    }
+
+    if (inode->blocks[FS_INDIRECT1_IDX]) {
+        free_indirect1(inode->blocks[FS_INDIRECT1_IDX]);
+        inode->blocks[FS_INDIRECT1_IDX] = 0;
+    }
+
+    if (inode->blocks[FS_INDIRECT2_IDX]) {
+        free_indirect2(inode->blocks[FS_INDIRECT2_IDX]);
+        inode->blocks[FS_INDIRECT2_IDX] = 0;
+    }
+}
+
 void fs_init() {
     uint8_t buf[512];
     ata_read28(0, buf);
@@ -57,8 +175,8 @@ void fs_init() {
 
         fs_write_sectors(FS_INODE_LBA, (uint8_t*)inodes, sizeof(inodes));
         fs_write_sectors(FS_BITMAP_LBA, bitmap, sizeof(bitmap));
-    } 
-    
+    }
+
     else {
         fs_read_sectors(FS_INODE_LBA, (uint8_t*)inodes, sizeof(inodes));
         fs_read_sectors(FS_BITMAP_LBA, bitmap, sizeof(bitmap));
@@ -86,25 +204,12 @@ static int fs_find(const char* name, uint32_t parent) {
 int fs_create(const char* name, uint32_t parent, uint8_t is_dir) {
     for (int i = 1; i < FS_MAX_INODES; i++) {
         if (!inodes[i].used) {
-
             inodes[i].used = 1;
             inodes[i].is_dir = is_dir;
             inodes[i].parent = parent;
             kstrcpy(inodes[i].name, name, FS_MAX_NAME);
             inodes[i].size = 0;
-
-            if (!is_dir) {
-                int lba = alloc_block();
-                if (lba < 0) {
-                    kmemset(&inodes[i], 0, sizeof(inode_t));
-                    return -1;
-                }
-
-                inodes[i].blocks[0] = lba;
-                uint8_t zero[512];
-                kmemset(zero, 0, sizeof(zero));
-                ata_write28(lba, zero);
-            }
+            kmemset(inodes[i].blocks, 0, sizeof(inodes[i].blocks));
 
             fs_write_sectors(FS_INODE_LBA, (uint8_t*)inodes, sizeof(inodes));
             fs_write_sectors(FS_BITMAP_LBA, bitmap, sizeof(bitmap));
@@ -114,19 +219,30 @@ int fs_create(const char* name, uint32_t parent, uint8_t is_dir) {
     return -1;
 }
 
-int fs_write(const char* name, uint32_t parent, uint8_t* data, uint32_t size) {
-    int id = fs_find(name, parent);
-    if (id < 0) return 0;
-    if (inodes[id].is_dir) return 0;
-    if (size > 511) size = 511;
+int fs_write_by_id(int id, uint8_t* data, uint32_t size) {
+    if (id < 0 || id >= FS_MAX_INODES || !inodes[id].used || inodes[id].is_dir) return 0;
 
-    uint8_t buf[512];
+    free_all_blocks(&inodes[id]);
 
-    kmemset(buf, 0, sizeof(buf));
-    kmemcpy(buf, data, size);
-    buf[size] = 0;
+    uint32_t blocks_needed = (size + FS_BLOCK_SIZE - 1) / FS_BLOCK_SIZE;
+    uint8_t block_buf[FS_BLOCK_SIZE];
 
-    ata_write28(inodes[id].blocks[0], buf);
+    for (uint32_t i = 0; i < blocks_needed; i++) {
+        uint32_t lba = get_block(&inodes[id], i, 1);
+        if (lba == 0) {
+            size = i * FS_BLOCK_SIZE;
+            break;
+        }
+
+        kmemset(block_buf, 0, sizeof(block_buf));
+        uint32_t offset = i * FS_BLOCK_SIZE;
+        uint32_t chunk = size > offset ? size - offset : 0;
+        if (chunk > FS_BLOCK_SIZE) chunk = FS_BLOCK_SIZE;
+        if (chunk > 0) kmemcpy(block_buf, data + offset, chunk);
+
+        ata_write28(lba, block_buf);
+    }
+
     inodes[id].size = size;
 
     fs_write_sectors(FS_INODE_LBA, (uint8_t*)inodes, sizeof(inodes));
@@ -134,13 +250,42 @@ int fs_write(const char* name, uint32_t parent, uint8_t* data, uint32_t size) {
     return 1;
 }
 
+int fs_write(const char* name, uint32_t parent, uint8_t* data, uint32_t size) {
+    int id = fs_find(name, parent);
+    if (id < 0) return 0;
+    return fs_write_by_id(id, data, size);
+}
+
+int fs_read_by_id(int id, uint8_t* out) {
+    if (id < 0 || id >= FS_MAX_INODES || !inodes[id].used || inodes[id].is_dir) return 0;
+
+    uint32_t size = inodes[id].size;
+    uint32_t blocks_needed = (size + FS_BLOCK_SIZE - 1) / FS_BLOCK_SIZE;
+
+    for (uint32_t i = 0; i < blocks_needed; i++) {
+        uint32_t lba = get_block(&inodes[id], i, 0);
+        uint32_t offset = i * FS_BLOCK_SIZE;
+        uint32_t chunk = size - offset;
+        if (chunk > FS_BLOCK_SIZE) chunk = FS_BLOCK_SIZE;
+
+        if (lba == 0) {
+            kmemset(out + offset, 0, chunk);
+            continue;
+        }
+
+        uint8_t block_buf[FS_BLOCK_SIZE];
+        ata_read28(lba, block_buf);
+        kmemcpy(out + offset, block_buf, chunk);
+    }
+
+    out[size] = 0;
+    return 1;
+}
+
 int fs_read(const char* name, uint32_t parent, uint8_t* out) {
     int id = fs_find(name, parent);
     if (id < 0) return 0;
-    if (!inodes[id].used || inodes[id].is_dir) return 0;
-
-    ata_read28(inodes[id].blocks[0], out);
-    return 1;
+    return fs_read_by_id(id, out);
 }
 
 int fs_mk(const char* name, uint32_t parent) {
@@ -167,7 +312,7 @@ int fs_rm_by_id(int id) {
     if (id <= 0 || id >= FS_MAX_INODES || !inodes[id].used) return 0;
     if (inodes[id].is_dir) return 0;
 
-    free_block_lba(inodes[id].blocks[0]);
+    free_all_blocks(&inodes[id]);
     kmemset(&inodes[id], 0, sizeof(inode_t));
     fs_write_sectors(FS_INODE_LBA, (uint8_t*)inodes, sizeof(inodes));
     fs_write_sectors(FS_BITMAP_LBA, bitmap, sizeof(bitmap));
@@ -211,27 +356,6 @@ int fs_is_dir(int id) {
     return inodes[id].is_dir;
 }
 
-int fs_read_by_id(int id, uint8_t* out) {
-    if (id < 0 || id >= FS_MAX_INODES || !inodes[id].used || inodes[id].is_dir) return 0;
-    ata_read28(inodes[id].blocks[0], out);
-    return 1;
-}
-
-int fs_write_by_id(int id, uint8_t* data, uint32_t size) {
-    if (id < 0 || id >= FS_MAX_INODES || !inodes[id].used || inodes[id].is_dir) return 0;
-    if (size > 511) size = 511;
-
-    uint8_t buf[512];
-
-    kmemset(buf, 0, sizeof(buf));
-    kstrncpy((char *)buf, (char *)data, size);
-    ata_write28(inodes[id].blocks[0], buf);
-    inodes[id].size = size;
-
-    fs_write_sectors(FS_INODE_LBA, (uint8_t *)inodes, sizeof(inodes));
-    return 1;
-}
-
 void fs_split_path(const char* path, char* dir_out, char* name_out) {
     int last = -1;
     for (int i = 0; path[i]; i++) if (path[i] == '/') last = i;
@@ -239,14 +363,14 @@ void fs_split_path(const char* path, char* dir_out, char* name_out) {
     if (last < 0) {
         dir_out[0] = '\0';
         kstrncpy(name_out, path, FS_MAX_NAME);
-    } 
-    
+    }
+
     else {
         if (last == 0) {
             dir_out[0] = '/';
             dir_out[1] = '\0';
-        } 
-        
+        }
+
         else {
             kstrncpy(dir_out, path, last);
             dir_out[last] = '\0';
@@ -299,7 +423,7 @@ void fs_list_names(uint32_t parent, char names[][FS_MAX_NAME], int* count) {
             if (inodes[i1].is_dir != inodes[i2].is_dir) {
                 if (!inodes[i1].is_dir && inodes[i2].is_dir) swap = 1;
             }
-            
+
             else if (kstrcmp(inodes[i1].name, inodes[i2].name) > 0) {
                 swap = 1;
             }
@@ -313,7 +437,7 @@ void fs_list_names(uint32_t parent, char names[][FS_MAX_NAME], int* count) {
     }
 
     *count = n;
-    
+
     for (int k = 0; k < n; k++) {
         int i = idx[k];
         kstrncpy(names[k], inodes[i].name, FS_MAX_NAME);
@@ -344,10 +468,27 @@ int fs_copy_by_id(int src_id, uint32_t dest_parent, const char* new_name) {
     if (new_id < 0) return -1;
 
     if (!inodes[src_id].is_dir) {
-        uint8_t buf[512];
-        if (fs_read_by_id(src_id, buf)) {
-            fs_write_by_id(new_id, buf, inodes[src_id].size);
+        uint32_t size = inodes[src_id].size;
+        uint32_t blocks_needed = (size + FS_BLOCK_SIZE - 1) / FS_BLOCK_SIZE;
+        uint8_t block_buf[FS_BLOCK_SIZE];
+
+        for (uint32_t i = 0; i < blocks_needed; i++) {
+            uint32_t slba = get_block(&inodes[src_id], i, 0);
+            kmemset(block_buf, 0, sizeof(block_buf));
+            if (slba) ata_read28(slba, block_buf);
+
+            uint32_t dlba = get_block(&inodes[new_id], i, 1);
+            if (dlba == 0) {
+                size = i * FS_BLOCK_SIZE;
+                break;
+            }
+
+            ata_write28(dlba, block_buf);
         }
+
+        inodes[new_id].size = size;
+        fs_write_sectors(FS_INODE_LBA, (uint8_t*)inodes, sizeof(inodes));
+        fs_write_sectors(FS_BITMAP_LBA, bitmap, sizeof(bitmap));
         return new_id;
     }
 
