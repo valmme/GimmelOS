@@ -190,25 +190,28 @@ static void cpuid_call(uint32_t code, uint32_t* a, uint32_t* b, uint32_t* c, uin
 static void cmd_help(const char* args) {
     if (args && kstrcmp(args, "2") == 0) {
         sp("Commands (page 2):");
-        sp(" - cat       - output file content");
-        sp(" - wr        - write line into file");
-        sp(" - run       - run shell file");
-        sp(" - mk");
-        sp(" - mkdir");
-        sp(" - rm");
-        sp(" - rmdir");
-        sp(" - lito [path]  - open editor");
-        sp(" - wolfenstein (open the game)");
-        sp(" - reboot");
-        sp(" - halt");
+        sp(" - cat   [file_name]   - output file content");
+        sp(" - wr    [file_name]   - write line into file");
+        sp(" - run   [file_name]   - run shell file");
+        sp(" - mk    [file_name]   - create a file");
+        sp(" - mkdir [folder_path] - create a folder");
+        sp(" - rm    [file_name]   - remove the file");
+        sp(" - rmdir [folder_path] - remove the folder");
+        sp(" - lito  [file_name]   - open text editor");
+        sp(" - game                - open the example game");
+    }
+
+    else {
         sp("Commands:");
-        sp(" - help      - commands list");
-        sp(" - clear     - clear console");
-        sp(" - echo      - print text in console");
-        sp(" - info      - info about PC");
-        sp(" - pwd       - outputs the current path");
-        sp(" - ls        - list of files in directory");
-        sp(" - cd        - change directory");
+        sp(" - help        - commands list");
+        sp(" - clear       - clear console");
+        sp(" - echo [text] - print text in console");
+        sp(" - info        - info about PC");
+        sp(" - pwd         - outputs the current path");
+        sp(" - ls          - list of files in directory");
+        sp(" - cd          - change directory");
+        sp(" - reboot      - reboot the PC");
+        sp(" - halt        - stop all CPU functions");
 
         sp("");
         sp("Type 'help 2' to see second page of commands.");
