@@ -23,16 +23,16 @@
 
 #define TOOLBAR_MARGIN  8
 #define BTN_GAP         6
-#define TOOLBAR_Y       20
-#define TOOLBAR_H       30
+#define TOOLBAR_Y       24
+#define TOOLBAR_H       36
 #define TOOLBAR_PANEL_H (TOOLBAR_H + 8)
 
-#define LIST_TOP (16 + TOOLBAR_PANEL_H)
+#define LIST_TOP (20 + TOOLBAR_PANEL_H)
 #define ITEM_Y0  (LIST_TOP + 5)
-#define ITEM_H   34
+#define ITEM_H   40
 
 #define ICON_PAD_X    4
-#define ICON_PAD_Y    1
+#define ICON_PAD_Y    4
 #define ICON_TEXT_GAP 4
 #define TEXT_X_OFFSET (ICON_PAD_X + ICON_W + ICON_TEXT_GAP)
 
@@ -541,11 +541,11 @@ void explorer_draw(int wid) {
     fs_get_path(current_path, fs_path, 96);
     kstrncat(path_str, fs_path, 128);
 
-    wm_draw_fill_rec((rec){0, 0, canvas.w, 16}, COLOR_PATH_BG);
-    wm_draw_text(path_str, (vec2){4, 4}, COLOR_TEXT);
+    wm_draw_fill_rec((rec){0, 0, canvas.w, 20}, COLOR_PATH_BG);
+    wm_draw_text(path_str, (vec2){4, 2}, COLOR_TEXT);
 
-    wm_draw_fill_rec((rec){0, 16, canvas.w, TOOLBAR_H + 4}, COLOR_TOOLBAR_BG);
-    draw_bevel_rec((rec){0, 16, canvas.w, TOOLBAR_H + 4}, 1);
+    wm_draw_fill_rec((rec){0, 20, canvas.w, TOOLBAR_H + 4}, COLOR_TOOLBAR_BG);
+    draw_bevel_rec((rec){0, 20, canvas.w, TOOLBAR_H + 4}, 1);
 
     rec list_border = {0, LIST_TOP, canvas.w, canvas.h - LIST_TOP};
     draw_bevel_rec(list_border, 0);
