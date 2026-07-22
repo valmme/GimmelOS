@@ -72,6 +72,7 @@ void gfx_render_frame() {
 
     while (1) {
         update_fps_counter();
+        update_delta_time();
 
         io_poll();
         wm_handle_mouse(mouse);

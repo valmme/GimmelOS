@@ -122,10 +122,8 @@ void q3d_init(int wid) {
 }
 
 void q3d_update(int wid) {
-    float dt = 1.0f / (float)get_fps();
-    if (dt > 0.05f) dt = 0.05f;
-
-    const float speed = 15.0f;
+    float dt = get_delta_time();
+    const float speed = 1.0f;
 
     if (keyboard_is_key_pressed(SC_SPACE)) {
         auto_rot = !auto_rot;
@@ -250,5 +248,6 @@ void q3d_draw(int wid) {
         }
     }
 
+    wm_draw_text("Press Space or arrows to rotate", (vec2){5, 5}, GFX_WHITE);
     wm_end_draw();
 }

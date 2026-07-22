@@ -13,6 +13,8 @@ void calibrate_timer(void);
 void time_sleep(uint8_t sec);
 void delay_ms(uint32_t ms);
 void update_fps_counter(void);
+void update_delta_time(void);
+float get_delta_time(void);
 uint32_t get_fps(void);
 
 #endif

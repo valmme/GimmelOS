@@ -1,16 +1,17 @@
 #include "lib/types.h"
 #include "lib/kstring.h"
+#include "kernel/time.h"
 #include "gfx/gfx.h"
 #include "apps/game/textures.h"
 #include "apps/game/game.h"
 
 #define map_w 64
 #define map_h 64
-#define MOVE_SPEED 180.0f
+#define MOVE_SPEED 10.0f
 #define MOUSE_SENS 0.003f
 #define ROT_SPEED 3.0f
 #define FLOOR_STEP 2
-#define HEIGHT_SPEED 2000.0f
+#define HEIGHT_SPEED 500.0f
 
 static int RENDER_SCALE = 1;
 
@@ -86,8 +87,7 @@ void game_update(int wid) {
     extern wm_t wm;
 
     float pitch_w_limit = 1.0f;
-    float dt = 1.0f / (float)get_fps();
-    if (dt > 0.05f) dt = 0.05f;
+    float dt = get_delta_time();
 
     key_w = keyboard_is_key_down(SC_W);
     key_s = keyboard_is_key_down(SC_S);

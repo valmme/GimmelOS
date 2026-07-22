@@ -2,8 +2,10 @@
 #include "kernel/io.h"
 
 static uint64_t last_time = 0;
+static uint64_t last_frame = 0;
 static uint64_t frame_count = 0;
 static uint32_t current_fps = 0;
+static float dt = 0.0f;
 static uint64_t ticks_per_sec = 0;
 static uint32_t ticks_per_ms = 0;
 
@@ -14,6 +16,7 @@ void calibrate_timer(void) {
     ticks_per_ms = (uint32_t)((end - start) / 100);
     ticks_per_sec = (uint64_t)ticks_per_ms * 1000;
     last_time = get_cycles();
+    last_frame = last_time;
 }
 
 void update_fps_counter(void) {
@@ -27,8 +30,18 @@ void update_fps_counter(void) {
     }
 }
 
+void update_delta_time(void) {
+    uint64_t now = get_cycles();
+    dt = (float)(now - last_frame) / (float)ticks_per_sec;
+    last_frame = now;
+}
+
 uint32_t get_fps(void) {
     return current_fps;
+}
+
+float get_delta_time(void) {
+    return dt;
 }
 
 void delay_ms(uint32_t ms) {
